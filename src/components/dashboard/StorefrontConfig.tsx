@@ -260,26 +260,15 @@ export const StorefrontConfig: React.FC = () => {
                   </p>
                   <div className="space-y-1.5 font-mono text-[11px]">
                     <div className="flex items-center justify-between p-2 rounded-lg bg-black/40 border border-white/5">
-                      <span className="text-blue-400">/storefront</span>
+                      <span className="text-blue-400 font-bold">/storefront?storeId={domainInput.split('.')[0] || 'peacock_store'}</span>
                       <Link
-                        href={APP_ROUTES.storefront}
+                        href={`${APP_ROUTES.storefront}?storeId=${domainInput.split('.')[0] || 'peacock_store'}`}
                         target="_blank"
-                        className="text-[10px] font-bold text-white/70 hover:text-white flex items-center gap-1"
+                        className="text-[10px] font-bold text-white/90 hover:text-white px-2 py-1 rounded bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 flex items-center gap-1 transition-all"
                       >
-                        <span>Open Next.js</span>
+                        <span>Open Storefront</span>
                         <ExternalLink className="w-3 h-3 text-blue-400" />
                       </Link>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-black/40 border border-white/5">
-                      <span className="text-white/60">/views/customerFastCart-view.html</span>
-                      <a
-                        href="/views/customerFastCart-view.html"
-                        target="_blank"
-                        className="text-[10px] font-bold text-white/70 hover:text-white flex items-center gap-1"
-                      >
-                        <span>Open HTML View</span>
-                        <ExternalLink className="w-3 h-3 text-emerald-400" />
-                      </a>
                     </div>
                   </div>
                 </div>

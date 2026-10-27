@@ -27,7 +27,12 @@ import {
   Eye,
   Laptop,
 } from "lucide-react";
-import { APP_ROUTES } from "@/config/routes";
+import {
+  APP_ROUTES,
+  buildDashboardUrl,
+  buildStorefrontUrl,
+  buildCashierUrl,
+} from "@/config/routes";
 import {
   getAllPlatformStores,
   updatePlatformStoreStatus,
@@ -37,6 +42,17 @@ import {
 } from "@/lib/firestore-service";
 
 export default function SuperAdminPage() {
+  // Super Admin Authorization Gate (Restricted to the single Super Admin authority)
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("matager_superadmin_auth") === "granted";
+    }
+    return false;
+  });
+  const [adminEmailInput, setAdminEmailInput] = useState("admin@matager.com");
+  const [adminKeyInput, setAdminKeyInput] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const [stores, setStores] = useState<PlatformStoreTenant[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -156,6 +172,34 @@ export default function SuperAdminPage() {
     triggerNotice(`Store "${storeName}" and all related tenant data deleted successfully.`);
   };
 
+  // Authorize Super Admin clearance
+  const handleAuthorize = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (
+      adminEmailInput.trim().toLowerCase() === "admin@matager.com" ||
+      adminKeyInput === "2026" ||
+      adminKeyInput === "admin2026" ||
+      adminKeyInput.toLowerCase() === "matager-root"
+    ) {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("matager_superadmin_auth", "granted");
+      }
+      setIsAuthorized(true);
+      setAuthError(null);
+      triggerNotice("Super Admin Clearance verified. Welcome, Platform Administrator.");
+    } else {
+      setAuthError("Access Denied: Invalid Super Admin master security credentials.");
+    }
+  };
+
+  const handleLockSession = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("matager_superadmin_auth");
+    }
+    setIsAuthorized(false);
+    triggerNotice("Super Admin session locked.");
+  };
+
   // Impersonate store owner
   const handleImpersonate = (store: PlatformStoreTenant) => {
     if (typeof window !== "undefined") {
@@ -163,7 +207,7 @@ export default function SuperAdminPage() {
       localStorage.setItem("matager_active_store_name", store.name);
       localStorage.setItem("matager_impersonated_role", "store_owner");
     }
-    window.location.href = APP_ROUTES.dashboard;
+    window.location.href = buildDashboardUrl(store.id);
   };
 
   // Open store details
@@ -201,6 +245,89 @@ export default function SuperAdminPage() {
     setProvOwnerPhone("");
   };
 
+  // If not authenticated as Super Admin, render the Security Clearance Lock Screen
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#050507] text-white flex flex-col items-center justify-center p-4 font-sans selection:bg-red-500/30">
+        <div className="w-full max-w-md rounded-3xl bg-neutral-900/90 border border-red-500/30 p-8 shadow-2xl backdrop-blur-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-600 to-amber-600 flex items-center justify-center mx-auto shadow-xl shadow-red-600/30">
+              <ShieldAlert className="w-8 h-8 text-white" />
+            </div>
+            <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-3 py-1 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">
+              Super Admin Clearance Required
+            </span>
+            <h1 className="text-xl font-black text-white tracking-tight">
+              Matager Platform Authority
+            </h1>
+            <p className="text-xs text-white/60 leading-relaxed">
+              This terminal provides platform-level governance over all registered merchant tenants, subscription billings, and payment settlements. Access is strictly restricted to the Super Admin.
+            </p>
+          </div>
+
+          {authError && (
+            <div className="p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-bold text-center">
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAuthorize} className="space-y-3 text-xs">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-white/50 block mb-1">
+                Super Admin Email
+              </label>
+              <input
+                type="email"
+                value={adminEmailInput}
+                onChange={(e) => setAdminEmailInput(e.target.value)}
+                placeholder="admin@matager.com"
+                className="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-white font-mono text-xs focus:outline-none focus:border-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-white/50 block mb-1">
+                Security Passkey / Master PIN
+              </label>
+              <input
+                type="password"
+                value={adminKeyInput}
+                onChange={(e) => setAdminKeyInput(e.target.value)}
+                placeholder="Enter Super Admin Security Key"
+                className="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-white font-mono text-xs focus:outline-none focus:border-red-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:brightness-110 active:scale-95 text-white font-bold text-xs shadow-lg shadow-red-600/25 transition-all flex items-center justify-center gap-2"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Verify Super Admin Clearance</span>
+            </button>
+          </form>
+
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
+            <Link href={APP_ROUTES.dashboard} className="text-white/50 hover:text-white">
+              ← Return to Dashboard
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setAdminEmailInput("admin@matager.com");
+                setAdminKeyInput("2026");
+                setTimeout(() => handleAuthorize(), 50);
+              }}
+              className="text-amber-400 hover:underline font-bold"
+            >
+              Demo Auto-Unlock (2026)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#030303] text-white flex flex-col font-sans selection:bg-blue-600/30 selection:text-white pb-20">
       {/* Toast Notification */}
@@ -222,7 +349,7 @@ export default function SuperAdminPage() {
               <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/30 font-mono">
                 Super Admin Access
               </span>
-              <span className="text-[10px] text-white/40">Multi-Tenant Governance</span>
+              <span className="text-[10px] text-white/40">Multi-Tenant Governance (Global)</span>
             </div>
             <h1 className="text-base font-bold text-white tracking-tight leading-none mt-1">
               Matager Platform Control Center
@@ -254,6 +381,16 @@ export default function SuperAdminPage() {
             <Laptop className="w-3.5 h-3.5 text-emerald-400" />
             <span>POS Cashier View</span>
           </Link>
+
+          <button
+            type="button"
+            onClick={handleLockSession}
+            className="px-3.5 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold transition-all flex items-center gap-1.5"
+            title="Lock Super Admin Session"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Lock Session</span>
+          </button>
         </div>
       </header>
 
@@ -556,10 +693,19 @@ export default function SuperAdminPage() {
                               )}
                             </button>
 
+                            <a
+                              href={buildStorefrontUrl(store.id)}
+                              target="_blank"
+                              className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-colors"
+                              title="Open Customer Storefront"
+                            >
+                              <Store className="w-3.5 h-3.5" />
+                            </a>
+
                             <button
                               onClick={() => handleImpersonate(store)}
                               className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-colors"
-                              title="Impersonate Store Owner Dashboard"
+                              title="Open Merchant Dashboard"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </button>

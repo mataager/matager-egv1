@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Store,
   RefreshCw,
@@ -34,14 +35,16 @@ import {
   Sun,
   Moon,
   Zap,
+  ChevronDown,
 } from "lucide-react";
-import { APP_ROUTES } from "@/config/routes";
+import { APP_ROUTES, buildDashboardUrl, buildStorefrontUrl } from "@/config/routes";
 import { useTheme } from "@/theme/useTheme";
 import {
   createPosTransaction,
   getStorePosNodes,
   type PosNodeInfo,
 } from "@/lib/firestore-service";
+import { getStoreProfile, getAllRegisteredStores } from "@/lib/store-registry";
 
 interface PosProductItem {
   id: string;
@@ -165,7 +168,43 @@ const POS_CATALOG: PosProductItem[] = [
   },
 ];
 
-export default function PosCashierPage() {
+function PosCashierContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const storeIdParam = searchParams.get("storeId") || searchParams.get("store") || "peacock_store";
+  const activeStore = useMemo(() => getStoreProfile(storeIdParam), [storeIdParam]);
+  const allStores = useMemo(() => getAllRegisteredStores(), []);
+  const [showStoreSwitcher, setShowStoreSwitcher] = useState(false);
+
+  const handleSwitchStore = (newStoreId: string) => {
+    setShowStoreSwitcher(false);
+    const params = new URLSearchParams(window.location.search);
+    params.set("storeId", newStoreId);
+    router.push(`/cashier?${params.toString()}`);
+  };
+
+  // Derive catalog from active store merged with POS items
+  const storePosCatalog = useMemo<PosProductItem[]>(() => {
+    if (!activeStore.products || activeStore.products.length === 0) {
+      return POS_CATALOG;
+    }
+    const storeMapped: PosProductItem[] = activeStore.products.map((p) => ({
+      id: p.id,
+      name: p.title,
+      sku: `${activeStore.id.slice(0, 3).toUpperCase()}-${p.id.slice(-4)}`,
+      category: (p.category as any) || "Apparel",
+      price: p.price,
+      originalPrice: p.originalPrice,
+      discountPercent: p.discountPercent,
+      stock: p.stock,
+      image: p.image,
+      size: "M",
+      color: "Standard",
+      isBestSeller: p.isBestSeller,
+    }));
+    return [...storeMapped, ...POS_CATALOG.slice(2)];
+  }, [activeStore]);
+
   // Terminal and shift state
   const [nodes, setNodes] = useState<PosNodeInfo[]>([]);
   const [selectedTerminal, setSelectedTerminal] = useState<string>("TERM-01");
@@ -253,7 +292,7 @@ export default function PosCashierPage() {
 
   // Filtered catalog
   const filteredProducts = useMemo(() => {
-    return POS_CATALOG.filter((item) => {
+    return storePosCatalog.filter((item) => {
       if (activeCategory !== "All Products" && item.category !== activeCategory) {
         return false;
       }
@@ -418,6 +457,7 @@ export default function PosCashierPage() {
     const currentTerminal = nodes.find((n) => n.id === selectedTerminal);
 
     const transaction = await createPosTransaction({
+      storeId: activeStore.id,
       terminalId: selectedTerminal,
       terminalName: currentTerminal?.name || "Terminal 01",
       cashierName,
@@ -507,7 +547,7 @@ export default function PosCashierPage() {
       <header className="px-4 py-3 bg-black/60 border-b border-white/10 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <Link
-            href={APP_ROUTES.dashboard}
+            href={buildDashboardUrl(activeStore.id)}
             className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0479E8] to-[#0083FE] flex items-center justify-center text-white shadow-md shadow-blue-500/20 hover:scale-105 transition-all"
             title="Return to Merchant Admin Dashboard"
           >
@@ -516,7 +556,7 @@ export default function PosCashierPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-bold text-white tracking-tight leading-none">
-                Matager Ground POS
+                {activeStore.name} · Ground POS
               </h1>
               <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
                 Online Sync
@@ -539,6 +579,38 @@ export default function PosCashierPage() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* POS Store Switcher Dropdown */}
+          <div className="relative hidden sm:block">
+            <button
+              type="button"
+              onClick={() => setShowStoreSwitcher(!showStoreSwitcher)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold text-blue-400 transition-all"
+              title="Switch Active Store POS"
+            >
+              <span>{activeStore.name}</span>
+              <ChevronDown className="w-3 h-3 text-white/50" />
+            </button>
+            {showStoreSwitcher && (
+              <div className="absolute top-full left-0 mt-1 w-56 rounded-xl bg-neutral-900 border border-white/15 p-1.5 shadow-2xl z-50">
+                <div className="px-2 py-1 text-[9px] font-mono uppercase text-white/40 border-b border-white/10 mb-1">
+                  Active Store POS Register
+                </div>
+                {allStores.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => handleSwitchStore(s.id)}
+                    className={`w-full p-1.5 rounded-lg text-left text-xs flex items-center justify-between transition-colors ${
+                      s.id === activeStore.id ? "bg-blue-600 text-white font-bold" : "text-white/80 hover:bg-white/5"
+                    }`}
+                  >
+                    <span>{s.name}</span>
+                    {s.id === activeStore.id && <CheckCircle2 className="w-3 h-3" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -622,10 +694,10 @@ export default function PosCashierPage() {
 
           {/* Storefront Link */}
           <Link
-            href={APP_ROUTES.storefront}
+            href={buildStorefrontUrl(activeStore.id)}
             target="_blank"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 text-[10px] font-bold transition-all"
-            title="Open Live Online Storefront"
+            title={`Open Live ${activeStore.name} Storefront`}
           >
             <ShoppingBag className="w-3 h-3" />
             <span>Storefront</span>
@@ -633,8 +705,9 @@ export default function PosCashierPage() {
 
           {/* Dashboard link */}
           <Link
-            href={APP_ROUTES.dashboard}
+            href={buildDashboardUrl(activeStore.id)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/80 hover:text-white text-[10px] font-bold transition-all"
+            title={`Open ${activeStore.name} Dashboard`}
           >
             <Gauge className="w-3 h-3 text-[#0083FE]" />
             <span>Admin</span>
@@ -1442,5 +1515,19 @@ export default function PosCashierPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PosCashierPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#030303] text-white flex items-center justify-center font-mono text-xs">
+          Loading Matager POS Cashier Terminal...
+        </div>
+      }
+    >
+      <PosCashierContent />
+    </Suspense>
   );
 }

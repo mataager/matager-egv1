@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { DashboardLanguageProvider } from "@/lib/i18n";
 import { TopNav } from "@/components/dashboard/TopNav";
 import { KpiStrip } from "@/components/dashboard/KpiStrip";
@@ -91,8 +91,16 @@ function DashboardContent() {
 
 export default function MerchantDashboardPage() {
   return (
-    <DashboardLanguageProvider>
-      <DashboardContent />
-    </DashboardLanguageProvider>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0a0a0c] text-white flex items-center justify-center font-mono text-xs">
+          Loading Matager Merchant Dashboard...
+        </div>
+      }
+    >
+      <DashboardLanguageProvider>
+        <DashboardContent />
+      </DashboardLanguageProvider>
+    </Suspense>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   ShoppingBag,
   Store,
@@ -26,10 +27,22 @@ import {
   Banknote,
   QrCode,
   Zap,
+  User,
+  MapPin,
+  SlidersHorizontal,
+  RefreshCw,
 } from "lucide-react";
 import { useTheme } from "@/theme/useTheme";
 import { useDashboardLanguage } from "@/lib/i18n";
-import { APP_ROUTES } from "@/config/routes";
+import { APP_ROUTES, buildDashboardUrl, buildCashierUrl } from "@/config/routes";
+import {
+  getStoreProfile,
+  resolveViewer,
+  getAllRegisteredStores,
+  type StoreProfile,
+  type StoreProduct,
+  type ViewerProfile,
+} from "@/lib/store-registry";
 
 interface CartItem {
   id: string;
@@ -40,142 +53,55 @@ interface CartItem {
   sku?: string;
   size?: string;
   color?: string;
+  currency?: string;
 }
 
 interface StoreGroup {
   name: string;
+  currency: string;
   items: CartItem[];
   subtotal: number;
 }
 
 type UniversalCart = Record<string, StoreGroup>;
 
-interface Product {
-  id: string;
-  title: string;
-  category: "Footwear" | "Apparel" | "Accessories" | "Limited";
-  storeId: string;
-  storeName: string;
-  price: number;
-  originalPrice?: number;
-  discountPercent?: number;
-  stock: number;
-  image: string;
-  badge?: string;
-  isBestSeller?: boolean;
-}
-
-const PEACOCK_PRODUCTS: Product[] = [
-  {
-    id: "PROD_001",
-    title: "Adidas Classic Graphic Tee",
-    category: "Apparel",
-    storeId: "peacock_store",
-    storeName: "Peacock Store",
-    price: 4500,
-    originalPrice: 9000,
-    discountPercent: 50,
-    stock: 18,
-    image: "https://assets.adidas.com/images/w_1880,f_auto,q_auto/a4ff4a779ee34deca8cc9a6f1f411440_9366/KC6611_HM1.jpg",
-    badge: "50% OFF",
-  },
-  {
-    id: "PROD_002",
-    title: "Adidas Ultraboost 22 Running",
-    category: "Footwear",
-    storeId: "peacock_store",
-    storeName: "Peacock Store",
-    price: 2200,
-    stock: 42,
-    image: "https://assets.adidas.com/images/w_1880,f_auto,q_auto/6f20fbc592f5410d83e7e3dd3e0926f0_9366/JS3268_01_00_standard.jpg",
-    badge: "BEST SELLER",
-    isBestSeller: true,
-  },
-  {
-    id: "PROD_003",
-    title: "Performance Crew Socks (3-Pack)",
-    category: "Accessories",
-    storeId: "peacock_store",
-    storeName: "Peacock Store",
-    price: 120,
-    stock: 120,
-    image: "https://resources.mandmdirect.com/Images/_default/a/d/3/ad30709_1_cloudzoom.jpg",
-    badge: "ESSENTIAL",
-  },
-  {
-    id: "PROD_004",
-    title: "Peacock Limited Edition Chrono Watch",
-    category: "Limited",
-    storeId: "peacock_store",
-    storeName: "Peacock Store",
-    price: 6800,
-    stock: 8,
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
-    badge: "LIMITED",
-  },
-  // Store B Showcase item to demonstrate multi-store grouping in action
-  {
-    id: "nk-270-blk",
-    title: "Nike Air Max 270 (Black Edition)",
-    category: "Footwear",
-    storeId: "nike_studio_cairo",
-    storeName: "Nike Studio Cairo",
-    price: 850,
-    originalPrice: 1250,
-    discountPercent: 32,
-    stock: 84,
-    image: "https://assets.adidas.com/images/w_940,f_auto,q_auto/6044dd9dea9948f49524adaa00b9338b_9366/GZ1561_01_00_standard.jpg",
-    badge: "PARTNER STORE",
-  },
-];
-
-const GALLERY_TILES = [
-  {
-    id: "GAL_01",
-    title: "EARRINGS COLLECTION",
-    subtitle: "Handcrafted Luxury",
-    price: 1850,
-    image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800",
-    className: "col-span-1 md:col-span-2 row-span-2",
-  },
-  {
-    id: "GAL_02",
-    title: "SIGNATURE RINGS",
-    subtitle: "18K Solid Gold Finish",
-    price: 2400,
-    image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=800",
-    className: "col-span-1 row-span-2",
-  },
-  {
-    id: "GAL_03",
-    title: "NECKLACES & PENDANTS",
-    subtitle: "Hand-set Crystal",
-    price: 3200,
-    image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800",
-    className: "col-span-1 md:col-span-2 row-span-1",
-  },
-  {
-    id: "GAL_04",
-    title: "CHRONO WATCHES",
-    subtitle: "Automatic Movement",
-    price: 6800,
-    image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800",
-    className: "col-span-1 row-span-1",
-  },
-  {
-    id: "GAL_05",
-    title: "BRACELETS",
-    subtitle: "Minimalist Modern",
-    price: 950,
-    image: "https://images.unsplash.com/photo-1611591475836-53d9e03d42e2?w=800",
-    className: "col-span-1 row-span-1",
-  },
-];
-
-export default function StorefrontPage() {
+function StorefrontContent() {
   const { theme, toggleTheme } = useTheme();
   const { locale, toggleLocale } = useDashboardLanguage();
   const isAr = locale === "ar";
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // URL parameters for Store ID & Viewer ID
+  const storeIdParam = searchParams.get("storeId") || searchParams.get("store");
+  const viewerIdParam = searchParams.get("viewerId") || searchParams.get("uid");
+
+  // Active Store Profile resolved by storeId
+  const [currentStore, setCurrentStore] = useState<StoreProfile>(() =>
+    getStoreProfile(storeIdParam || "peacock_store")
+  );
+
+  // Active Viewer / Customer Profile resolved by viewerId
+  const [viewer, setViewer] = useState<ViewerProfile>(() =>
+    resolveViewer(viewerIdParam)
+  );
+
+  // List of all platform stores for quick switching
+  const allStores = useMemo(() => getAllRegisteredStores(), []);
+
+  // Sync state whenever URL query params change
+  useEffect(() => {
+    const updatedStore = getStoreProfile(storeIdParam || "peacock_store");
+    setCurrentStore(updatedStore);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("matager_active_store_id", updatedStore.id);
+    }
+  }, [storeIdParam]);
+
+  useEffect(() => {
+    const updatedViewer = resolveViewer(viewerIdParam);
+    setViewer(updatedViewer);
+  }, [viewerIdParam]);
 
   // Presentation Mode: false = FastCart mode, true = 3D Bento Gallery mode
   const [isGalleryActive, setIsGalleryActive] = useState(false);
@@ -188,14 +114,25 @@ export default function StorefrontPage() {
   const [universalCart, setUniversalCart] = useState<UniversalCart>({});
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
 
-  // Checkout form state
-  const [customerName, setCustomerName] = useState("Mohamed Al-Sayed");
-  const [customerPhone, setCustomerPhone] = useState("+20 102 345 6789");
-  const [customerAddress, setCustomerAddress] = useState("12 El-Nile Street, Zamalek, Cairo");
+  // Store Switcher dropdown in header
+  const [showStoreSwitcher, setShowStoreSwitcher] = useState(false);
+  const [showViewerModal, setShowViewerModal] = useState(false);
+  const [customViewerInput, setCustomViewerInput] = useState("");
+
+  // Checkout form state (pre-populated from viewer profile)
+  const [customerName, setCustomerName] = useState(viewer.name);
+  const [customerPhone, setCustomerPhone] = useState(viewer.phone);
+  const [customerAddress, setCustomerAddress] = useState(viewer.address);
   const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placedOrderInfo, setPlacedOrderInfo] = useState<any>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCustomerName(viewer.name);
+    setCustomerPhone(viewer.phone);
+    setCustomerAddress(viewer.address);
+  }, [viewer]);
 
   // Audio effect
   const playSound = (type: "pop" | "cash" | "switch") => {
@@ -244,6 +181,27 @@ export default function StorefrontPage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Switch store via URL
+  const switchStore = (targetStoreId: string) => {
+    playSound("switch");
+    setShowStoreSwitcher(false);
+    const params = new URLSearchParams(window.location.search);
+    params.set("storeId", targetStoreId);
+    router.push(`/storefront?${params.toString()}`);
+    showToast(isAr ? `تم التبديل إلى متجر ${targetStoreId}` : `Switched to store: ${targetStoreId}`);
+  };
+
+  // Switch viewer via URL
+  const applyViewerChange = (newUid: string) => {
+    playSound("pop");
+    setShowViewerModal(false);
+    const cleanUid = newUid.trim() || `usr_viewer_${Math.random().toString(36).substring(2, 7)}`;
+    const params = new URLSearchParams(window.location.search);
+    params.set("viewerId", cleanUid);
+    router.push(`/storefront?${params.toString()}`);
+    showToast(isAr ? `تم تحديث هوية المتصفح: #${cleanUid}` : `Viewer ID updated: #${cleanUid}`);
+  };
+
   // Load cart from localStorage
   const loadCartFromStorage = () => {
     try {
@@ -257,7 +215,6 @@ export default function StorefrontPage() {
   useEffect(() => {
     loadCartFromStorage();
 
-    // Listen to storage and cross-window events
     const handleStorage = (e: StorageEvent) => {
       if (e.key === "matager_universal_cart") {
         loadCartFromStorage();
@@ -299,35 +256,38 @@ export default function StorefrontPage() {
   };
 
   // Cart operations
-  const handleAddToCart = (product: Product | { id: string; title: string; price: number; image: string; storeId?: string; storeName?: string }) => {
+  const handleAddToCart = (product: StoreProduct | { id: string; title: string; price: number; image: string; storeId?: string; storeName?: string; currency?: string }) => {
     playSound("pop");
-    const storeId = product.storeId || "peacock_store";
-    const storeName = product.storeName || "Peacock Store";
+    const targetStoreId = product.storeId || currentStore.id;
+    const targetStoreName = product.storeName || currentStore.name;
+    const itemCurrency = product.currency || currentStore.currency;
 
     const nextCart = { ...universalCart };
-    if (!nextCart[storeId]) {
-      nextCart[storeId] = {
-        name: storeName,
+    if (!nextCart[targetStoreId]) {
+      nextCart[targetStoreId] = {
+        name: targetStoreName,
+        currency: itemCurrency,
         items: [],
         subtotal: 0,
       };
     }
 
-    const existing = nextCart[storeId].items.find((i) => i.id === product.id);
+    const existing = nextCart[targetStoreId].items.find((i) => i.id === product.id);
     if (existing) {
       existing.qty += 1;
     } else {
-      nextCart[storeId].items.push({
+      nextCart[targetStoreId].items.push({
         id: product.id,
         title: product.title,
         price: product.price,
         image: product.image,
         qty: 1,
+        currency: itemCurrency,
       });
     }
 
     // Recalculate subtotal
-    nextCart[storeId].subtotal = nextCart[storeId].items.reduce(
+    nextCart[targetStoreId].subtotal = nextCart[targetStoreId].items.reduce(
       (sum, item) => sum + item.price * item.qty,
       0
     );
@@ -338,24 +298,24 @@ export default function StorefrontPage() {
     setActiveDockTab("cart");
   };
 
-  const handleUpdateQty = (storeId: string, productId: string, delta: number) => {
+  const handleUpdateQty = (targetStoreId: string, productId: string, delta: number) => {
     playSound("pop");
     const nextCart = { ...universalCart };
-    if (!nextCart[storeId]) return;
+    if (!nextCart[targetStoreId]) return;
 
-    const target = nextCart[storeId].items.find((i) => i.id === productId);
+    const target = nextCart[targetStoreId].items.find((i) => i.id === productId);
     if (!target) return;
 
     target.qty += delta;
     if (target.qty <= 0) {
-      nextCart[storeId].items = nextCart[storeId].items.filter((i) => i.id !== productId);
-      if (nextCart[storeId].items.length === 0) {
-        delete nextCart[storeId];
+      nextCart[targetStoreId].items = nextCart[targetStoreId].items.filter((i) => i.id !== productId);
+      if (nextCart[targetStoreId].items.length === 0) {
+        delete nextCart[targetStoreId];
       }
     }
 
-    if (nextCart[storeId]) {
-      nextCart[storeId].subtotal = nextCart[storeId].items.reduce(
+    if (nextCart[targetStoreId]) {
+      nextCart[targetStoreId].subtotal = nextCart[targetStoreId].items.reduce(
         (sum, item) => sum + item.price * item.qty,
         0
       );
@@ -364,16 +324,16 @@ export default function StorefrontPage() {
     saveCart(nextCart);
   };
 
-  const handleRemoveItem = (storeId: string, productId: string) => {
+  const handleRemoveItem = (targetStoreId: string, productId: string) => {
     playSound("switch");
     const nextCart = { ...universalCart };
-    if (!nextCart[storeId]) return;
+    if (!nextCart[targetStoreId]) return;
 
-    nextCart[storeId].items = nextCart[storeId].items.filter((i) => i.id !== productId);
-    if (nextCart[storeId].items.length === 0) {
-      delete nextCart[storeId];
+    nextCart[targetStoreId].items = nextCart[targetStoreId].items.filter((i) => i.id !== productId);
+    if (nextCart[targetStoreId].items.length === 0) {
+      delete nextCart[targetStoreId];
     } else {
-      nextCart[storeId].subtotal = nextCart[storeId].items.reduce(
+      nextCart[targetStoreId].subtotal = nextCart[targetStoreId].items.reduce(
         (sum, item) => sum + item.price * item.qty,
         0
       );
@@ -401,22 +361,26 @@ export default function StorefrontPage() {
 
     setTimeout(() => {
       const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-      const allStores = Object.keys(universalCart);
+      const allStoresInCart = Object.keys(universalCart);
 
       const unifiedOrder = {
         id: orderId,
         date: new Date().toISOString(),
         status: "Completed",
         channel: "FastCart-Online",
+        viewer_id: viewer.id,
         customer_name: customerName,
         customer_phone: customerPhone,
         shipping_address: customerAddress,
         payment_method: paymentMethod,
         amount: grandTotal,
+        currency: currentStore.currency,
         items_count: totalItemsCount,
-        stores: allStores.map((id) => ({
+        primary_store_id: currentStore.id,
+        stores: allStoresInCart.map((id) => ({
           storeId: id,
           name: universalCart[id].name,
+          currency: universalCart[id].currency,
           items: universalCart[id].items,
           subtotal: universalCart[id].subtotal,
         })),
@@ -427,6 +391,12 @@ export default function StorefrontPage() {
         const existing = JSON.parse(localStorage.getItem("matager_local_orders") || "[]");
         existing.unshift(unifiedOrder);
         localStorage.setItem("matager_local_orders", JSON.stringify(existing.slice(0, 50)));
+
+        // Also save to viewer's personal orders
+        const viewerKey = `matager_orders_${viewer.id}`;
+        const viewerOrders = JSON.parse(localStorage.getItem(viewerKey) || "[]");
+        viewerOrders.unshift(unifiedOrder);
+        localStorage.setItem(viewerKey, JSON.stringify(viewerOrders.slice(0, 20)));
       } catch (_) {}
 
       // 2. Clear cart
@@ -436,13 +406,14 @@ export default function StorefrontPage() {
       window.dispatchEvent(new CustomEvent("matager:new_order", { detail: unifiedOrder }));
       window.dispatchEvent(new CustomEvent("matager:storefront_order", { detail: unifiedOrder }));
 
-      // 4. Cross-tab BroadcastChannel to notify active POS terminals
+      // 4. Cross-tab BroadcastChannel to notify active POS terminals for this store
       try {
         if ("BroadcastChannel" in window) {
           const bc = new BroadcastChannel("matager_pos_sync");
           bc.postMessage({
             type: "ONLINE_FASTCART_ORDER",
             order: unifiedOrder,
+            storeId: currentStore.id,
             timestamp: Date.now(),
           });
           bc.close();
@@ -452,21 +423,39 @@ export default function StorefrontPage() {
       setIsSubmitting(false);
       setPlacedOrderInfo(unifiedOrder);
       setActiveDockTab("orders");
-      showToast(isAr ? `تم تأكيد الطلب بنجاح ${orderId} ومزامنته مع نقاط البيع!` : `Order ${orderId} placed & synced with POS Cashier!`);
-    }, 1100);
+      showToast(
+        isAr
+          ? `تم تأكيد الطلب بنجاح ${orderId} ومزامنته مع نقاط بيع ${currentStore.name}!`
+          : `Order ${orderId} placed & synced with ${currentStore.name} POS Cashier!`
+      );
+    }, 1000);
   };
 
   // Toggle Gallery Presentation Mode
   const handleTogglePresentation = () => {
     playSound("switch");
     setIsGalleryActive((prev) => !prev);
-    showToast(!isGalleryActive ? (isAr ? "تم الانتقال إلى معرض المنتجات ثلاثي الأبعاد" : "Switched to 3D Bento Gallery Mode") : (isAr ? "تم الانتقال إلى وضع السلة السريعة" : "Switched to FastCart Mode"));
+    showToast(
+      !isGalleryActive
+        ? isAr
+          ? "تم الانتقال إلى معرض المنتجات ثلاثي الأبعاد"
+          : "Switched to 3D Bento Gallery Mode"
+        : isAr
+        ? "تم الانتقال إلى وضع السلة السريعة"
+        : "Switched to FastCart Mode"
+    );
   };
 
+  // Filter products by category
   const filteredProducts = useMemo(() => {
-    if (categoryFilter === "All") return PEACOCK_PRODUCTS;
-    return PEACOCK_PRODUCTS.filter((p) => p.category === categoryFilter);
-  }, [categoryFilter]);
+    if (categoryFilter === "All") return currentStore.products;
+    return currentStore.products.filter((p) => p.category === categoryFilter);
+  }, [categoryFilter, currentStore]);
+
+  // Secondary partner store for demonstrating cross-store cart functionality
+  const partnerStore = useMemo(() => {
+    return allStores.find((s) => s.id !== currentStore.id) || allStores[0];
+  }, [allStores, currentStore]);
 
   return (
     <div
@@ -484,10 +473,10 @@ export default function StorefrontPage() {
       )}
 
       {/* ══════════════════ TOP STOREFRONT SYSTEM BAR ══════════════════ */}
-      <header className="sticky top-0 z-50 backdrop-blur-2xl bg-[var(--color-canvas)]/80 border-b border-[var(--color-border-subtle)] px-4 sm:px-8 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-50 backdrop-blur-2xl bg-[var(--color-canvas)]/85 border-b border-[var(--color-border-subtle)] px-4 sm:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href={APP_ROUTES.dashboard}
+            href={buildDashboardUrl(currentStore.id)}
             className="flex items-center gap-2 group"
             title="Return to Merchant Admin Dashboard"
           >
@@ -496,22 +485,87 @@ export default function StorefrontPage() {
             </div>
             <div className="hidden sm:block">
               <span className="text-xs font-bold tracking-tight block leading-none">Matager OS</span>
-              <span className="text-[10px] text-[var(--color-text-muted)] font-mono">Peacock Storefront</span>
+              <span className="text-[10px] text-[var(--color-text-muted)] font-mono">
+                {currentStore.name}
+              </span>
             </div>
           </Link>
 
           <span className="w-px h-4 bg-white/10 hidden sm:block"></span>
 
+          {/* Interactive Store Switcher Trigger */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowStoreSwitcher(!showStoreSwitcher)}
+              className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold flex items-center gap-1.5 transition-all text-blue-400"
+              title="Switch Active Store"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span className="max-w-[120px] truncate">{currentStore.name}</span>
+              <ChevronDown className="w-3 h-3 text-white/50" />
+            </button>
+
+            {/* Store Switcher Dropdown */}
+            {showStoreSwitcher && (
+              <div className="absolute top-full left-0 rtl:left-auto rtl:right-0 mt-2 w-64 rounded-2xl bg-neutral-900 border border-white/15 p-2 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200">
+                <div className="px-2 py-1 text-[10px] font-mono uppercase text-white/50 border-b border-white/10 mb-1">
+                  {isAr ? "المتاجر المتاحة بالمنصة" : "Platform Active Stores"}
+                </div>
+                <div className="space-y-1">
+                  {allStores.map((store) => (
+                    <button
+                      key={store.id}
+                      type="button"
+                      onClick={() => switchStore(store.id)}
+                      className={`w-full p-2 rounded-xl text-left rtl:text-right text-xs flex items-center justify-between transition-all ${
+                        store.id === currentStore.id
+                          ? "bg-blue-600 text-white font-bold"
+                          : "hover:bg-white/5 text-white/80"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={store.logo}
+                          alt={store.name}
+                          className="w-5 h-5 rounded-md object-cover bg-black"
+                        />
+                        <div>
+                          <p className="truncate font-bold leading-none">{store.name}</p>
+                          <p className="text-[10px] opacity-60 font-mono">{store.city}, {store.country}</p>
+                        </div>
+                      </div>
+                      {store.id === currentStore.id && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* POS Sync Indicator */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold">
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>{isAr ? "متزامن مع نقاط البيع" : "POS Cashier Synced"}</span>
+            <span>POS Online</span>
           </div>
         </div>
 
-        {/* Right Controls */}
+        {/* Right Controls: Viewer ID, Presentation Mode, Theme, Language, Cashier Link */}
         <div className="flex items-center gap-2">
-          {/* Mode Switcher */}
+          {/* Viewer ID Badge */}
+          <button
+            type="button"
+            onClick={() => setShowViewerModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-mono font-bold flex items-center gap-1.5 transition-all"
+            title="Click to view or switch Viewer ID"
+          >
+            <User className="w-3.5 h-3.5" />
+            <span className="max-w-[100px] truncate">
+              {viewer.id.startsWith("usr_viewer_") ? `#${viewer.id.slice(-4)}` : viewer.id}
+            </span>
+          </button>
+
+          {/* Presentation Mode Switcher */}
           <button
             type="button"
             onClick={handleTogglePresentation}
@@ -522,7 +576,9 @@ export default function StorefrontPage() {
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>{isGalleryActive ? (isAr ? "وضع السلة" : "FastCart Mode") : (isAr ? "معرض الصور" : "3D Gallery")}</span>
+            <span className="hidden sm:inline">
+              {isGalleryActive ? (isAr ? "وضع السلة" : "FastCart Mode") : (isAr ? "معرض الصور" : "3D Gallery")}
+            </span>
           </button>
 
           {/* Language Toggle */}
@@ -550,17 +606,79 @@ export default function StorefrontPage() {
             )}
           </button>
 
-          {/* Cashier Link */}
+          {/* POS Cashier Register Link */}
           <Link
-            href={APP_ROUTES.cashier}
+            href={buildCashierUrl(currentStore.id)}
             target="_blank"
             className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold transition-all hidden md:flex items-center gap-1.5"
+            title="Launch Store POS Register"
           >
             <Store className="w-3.5 h-3.5" />
             <span>POS Register</span>
           </Link>
         </div>
       </header>
+
+      {/* ══════════════════ VIEWER SWITCHER MODAL ══════════════════ */}
+      {showViewerModal && (
+        <div className="fixed inset-0 z-[10001] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-neutral-900 border border-white/15 p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-400" />
+                <h3 className="text-sm font-bold text-white">Viewer Session Identity</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowViewerModal(false)}
+                className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-white/60 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <p className="text-white/60">
+                Each viewer browsing this storefront has an independent ID standing on their cart, preferences, and orders.
+              </p>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 font-mono text-[11px] space-y-1">
+                <div><span className="text-white/50">Current Viewer ID:</span> <strong className="text-blue-400">{viewer.id}</strong></div>
+                <div><span className="text-white/50">Store Bound:</span> <strong className="text-white">{currentStore.id}</strong></div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase text-white/50 block mb-1">
+                  Change Viewer ID / UID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. omar_vip or customer_42"
+                  value={customViewerInput}
+                  onChange={(e) => setCustomViewerInput(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl p-2.5 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => applyViewerChange(`usr_viewer_${Math.random().toString(36).substring(2, 7)}`)}
+                className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold"
+              >
+                New Random ID
+              </button>
+              <button
+                type="button"
+                onClick={() => applyViewerChange(customViewerInput || viewer.id)}
+                className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/25"
+              >
+                Apply ID
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════ PARALLAX STOREFRONT STAGE ══════════════════ */}
       <main
@@ -571,12 +689,12 @@ export default function StorefrontPage() {
           pointerEvents: isGalleryActive ? "none" : "auto",
         }}
       >
-        {/* Store Hero Banner */}
+        {/* Dynamic Store Hero Banner standing on storeId */}
         <section className="relative rounded-3xl overflow-hidden border border-white/10 bg-black/40 shadow-2xl">
           <div className="h-48 sm:h-64 w-full overflow-hidden relative">
             <img
-              src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&q=80&auto=format&fit=crop"
-              alt="Peacock Store Cover"
+              src={currentStore.banner}
+              alt={`${currentStore.name} Cover`}
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
@@ -586,40 +704,66 @@ export default function StorefrontPage() {
             <div className="flex items-end gap-4">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-2 border-white/20 bg-neutral-900 shadow-xl shrink-0">
                 <img
-                  src="https://static.vecteezy.com/system/resources/previews/012/464/679/original/minimal-peacock-logo-vector.jpg"
-                  alt="Peacock Store Logo"
+                  src={currentStore.logo}
+                  alt={`${currentStore.name} Logo`}
                   className="w-full h-full object-cover"
                 />
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Peacock Store</h1>
-                  <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px]" title="Verified Merchant">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    {currentStore.name}
+                  </h1>
+                  {currentStore.verified && (
+                    <span
+                      className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px]"
+                      title="Verified Merchant on Matager"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </span>
+                  )}
+                  <span className="px-2 py-0.5 rounded-full bg-white/10 text-white/80 font-mono text-[10px] font-bold">
+                    {currentStore.id}
                   </span>
                 </div>
-                <p className="text-xs text-white/60">
-                  {isAr ? "منتجات عصرية فاخرة مختارة بعناية · فرع القاهرة الرئيسي" : "Premium products curated for modern lifestyle · Cairo Flagship"}
+                <p className="text-xs text-white/70 max-w-xl">
+                  {isAr ? currentStore.taglineAr : currentStore.tagline}
                 </p>
                 <div className="flex items-center gap-4 text-xs pt-1 font-mono">
-                  <span><strong className="text-white">1,284</strong> <span className="text-white/50">{isAr ? "منتج" : "products"}</span></span>
-                  <span><strong className="text-white">284</strong> <span className="text-white/50">{isAr ? "متابع" : "followers"}</span></span>
-                  <span className="text-amber-400 font-bold">4.9 ★ <span className="text-white/50">(2.3k)</span></span>
+                  <span>
+                    <strong className="text-white">{currentStore.productsCount}</strong>{" "}
+                    <span className="text-white/50">{isAr ? "منتج" : "products"}</span>
+                  </span>
+                  <span>
+                    <strong className="text-white">{currentStore.followersCount}</strong>{" "}
+                    <span className="text-white/50">{isAr ? "متابع" : "followers"}</span>
+                  </span>
+                  <span className="text-amber-400 font-bold">
+                    {currentStore.rating} ★ <span className="text-white/50">({currentStore.reviewsCount})</span>
+                  </span>
+                  <span className="text-blue-400 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    <span>{currentStore.city}, {currentStore.country}</span>
+                  </span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
               {/* Partner Store Add Demo Button */}
-              <button
-                type="button"
-                onClick={() => handleAddToCart(PEACOCK_PRODUCTS[4])}
-                className="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10"
-                title="Simulate cross-store add from Nike Studio Cairo"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{isAr ? "إضافة من متجر آخر (نايكي)" : "Add From Store B (Nike)"}</span>
-              </button>
+              {partnerStore && (
+                <button
+                  type="button"
+                  onClick={() => handleAddToCart(partnerStore.products[0])}
+                  className="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10"
+                  title={`Simulate multi-store checkout with ${partnerStore.name}`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="truncate">
+                    {isAr ? `إضافة من ${partnerStore.name}` : `Add From ${partnerStore.name}`}
+                  </span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -640,7 +784,7 @@ export default function StorefrontPage() {
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border-subtle)] pb-3">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-              {["All", "Footwear", "Apparel", "Accessories", "Limited"].map((cat) => (
+              {currentStore.categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setCategoryFilter(cat)}
@@ -655,12 +799,16 @@ export default function StorefrontPage() {
               ))}
             </div>
 
-            <div className="text-xs text-[var(--color-text-muted)] font-mono">
-              {filteredProducts.length} {isAr ? "منتجات معروضة" : "Products Live"}
+            <div className="text-xs text-[var(--color-text-muted)] font-mono flex items-center gap-2">
+              <span>
+                {filteredProducts.length} {isAr ? "منتجات معروضة" : "Products Live"}
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+              <span className="text-blue-400 font-bold">{currentStore.currency}</span>
             </div>
           </div>
 
-          {/* Product Grid */}
+          {/* Product Grid standing on currentStore catalog */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProducts.map((prod) => (
               <div
@@ -696,7 +844,9 @@ export default function StorefrontPage() {
                       <span className="text-base font-black font-mono text-[var(--color-text-primary)]">
                         {prod.price.toLocaleString()}
                       </span>
-                      <span className="text-[10px] text-[var(--color-text-muted)]">EGP</span>
+                      <span className="text-[10px] text-[var(--color-text-muted)] font-bold">
+                        {prod.currency || currentStore.currency}
+                      </span>
                       {prod.originalPrice && (
                         <span className="text-[10px] text-[var(--color-text-muted)] line-through">
                           {prod.originalPrice.toLocaleString()}
@@ -739,8 +889,12 @@ export default function StorefrontPage() {
         <div className="fixed inset-0 z-40 overflow-y-auto bg-black/95 backdrop-blur-3xl p-4 sm:p-8 flex flex-col items-center animate-in fade-in duration-500">
           <div className="w-full max-w-6xl mx-auto flex items-center justify-between pb-6 border-b border-white/10">
             <div>
-              <span className="text-xs uppercase font-mono text-blue-400 font-bold">3D Bento Presentation Mode</span>
-              <h2 className="text-xl sm:text-2xl font-black text-white">Peacock Fine Collections</h2>
+              <span className="text-xs uppercase font-mono text-blue-400 font-bold">
+                3D Bento Presentation Mode · {currentStore.name}
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                {currentStore.name} Featured Showcase
+              </h2>
             </div>
             <button
               type="button"
@@ -753,31 +907,32 @@ export default function StorefrontPage() {
           </div>
 
           <div className="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            {GALLERY_TILES.map((tile) => (
+            {currentStore.products.slice(0, 5).map((prod, idx) => (
               <div
-                key={tile.id}
-                onClick={() =>
-                  handleAddToCart({
-                    id: tile.id,
-                    title: tile.title,
-                    price: tile.price,
-                    image: tile.image,
-                    storeId: "peacock_store",
-                    storeName: "Peacock Store",
-                  })
-                }
-                className={`group relative rounded-3xl overflow-hidden bg-neutral-900 border border-white/15 cursor-pointer min-h-[260px] ${tile.className}`}
+                key={prod.id}
+                onClick={() => handleAddToCart(prod)}
+                className={`group relative rounded-3xl overflow-hidden bg-neutral-900 border border-white/15 cursor-pointer min-h-[260px] ${
+                  idx === 0
+                    ? "col-span-1 md:col-span-2 row-span-2 min-h-[360px]"
+                    : "col-span-1 row-span-1"
+                }`}
               >
                 <img
-                  src={tile.image}
-                  alt={tile.title}
-                  className="w-full h-full object-cover group-hover:scale-105 group-hover:blur-[2px] transition-all duration-700"
+                  src={prod.image}
+                  alt={prod.title}
+                  className="w-full h-full object-cover group-hover:scale-105 group-hover:blur-[1px] transition-all duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent flex flex-col justify-end p-6">
-                  <span className="text-[10px] font-mono text-blue-400 font-bold uppercase tracking-wider">{tile.subtitle}</span>
-                  <h3 className="text-base sm:text-lg font-black text-white leading-tight mt-0.5">{tile.title}</h3>
+                  <span className="text-[10px] font-mono text-blue-400 font-bold uppercase tracking-wider">
+                    {currentStore.name} · {prod.category}
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black text-white leading-tight mt-0.5">
+                    {prod.title}
+                  </h3>
                   <div className="flex items-baseline justify-between mt-2">
-                    <span className="text-sm font-black text-white font-mono">EGP {tile.price.toLocaleString()}</span>
+                    <span className="text-sm font-black text-white font-mono">
+                      {prod.currency || currentStore.currency} {prod.price.toLocaleString()}
+                    </span>
                     <span className="px-3 py-1 rounded-full bg-white text-black text-[10px] font-bold group-hover:bg-blue-500 group-hover:text-white transition-colors flex items-center gap-1">
                       <Plus className="w-3 h-3" /> Add to FastCart
                     </span>
@@ -790,7 +945,6 @@ export default function StorefrontPage() {
       )}
 
       {/* ══════════════════ FLOATING ANTIGRAVITY MULTI-STORE DOCK ══════════════════ */}
-      {/* Dimmed backdrop when dock is open */}
       <div
         onClick={() => setIsDockOpen(false)}
         className={`fixed inset-0 z-[9980] bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
@@ -815,15 +969,15 @@ export default function StorefrontPage() {
       >
         {/* Dock Header */}
         <div className="h-11 px-4 border-b border-white/10 flex items-center justify-between text-xs font-bold shrink-0 bg-white/[0.02]">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider">
+          <div className="flex items-center gap-2 truncate">
+            <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider shrink-0">
               Matager OS
             </span>
-            <span className="truncate">
+            <span className="truncate text-[11px]">
               {isAr ? "السلة الموحدة لجميع المتاجر" : "Universal Multi-Store Dock"}
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={toggleTheme}
@@ -895,7 +1049,9 @@ export default function StorefrontPage() {
                 <div className="py-10 text-center text-white/40 space-y-2">
                   <ShoppingBag className="w-10 h-10 mx-auto opacity-30" />
                   <p className="text-sm font-bold text-white">Your Universal Cart is empty</p>
-                  <p className="text-xs">Browse products above or simulate a cross-store purchase to experience zero-gravity checkout.</p>
+                  <p className="text-xs">
+                    Browse {currentStore.name} products above or add from a partner store to experience zero-gravity checkout.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -914,7 +1070,7 @@ export default function StorefrontPage() {
                           </span>
                         </div>
                         <span className="text-xs font-mono font-bold text-blue-400">
-                          EGP {store.subtotal.toLocaleString()}
+                          {store.currency || currentStore.currency} {store.subtotal.toLocaleString()}
                         </span>
                       </div>
 
@@ -930,7 +1086,9 @@ export default function StorefrontPage() {
                               />
                               <div className="min-w-0">
                                 <p className="text-xs font-bold text-white truncate">{item.title}</p>
-                                <p className="text-[10px] text-white/50 font-mono">EGP {item.price.toLocaleString()}</p>
+                                <p className="text-[10px] text-white/50 font-mono">
+                                  {item.currency || store.currency} {item.price.toLocaleString()}
+                                </p>
                               </div>
                             </div>
 
@@ -975,7 +1133,9 @@ export default function StorefrontPage() {
                     </div>
                     <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-white/10">
                       <span>{isAr ? "الإجمالي الكلي" : "Grand Total"}</span>
-                      <span className="font-mono text-blue-400">EGP {grandTotal.toLocaleString()}</span>
+                      <span className="font-mono text-blue-400">
+                        {currentStore.currency} {grandTotal.toLocaleString()}
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -994,6 +1154,13 @@ export default function StorefrontPage() {
           {/* TAB 2: CHECKOUT VIEW */}
           {activeDockTab === "checkout" && (
             <div className="space-y-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 flex items-center justify-between font-mono text-[11px]">
+                <span className="flex items-center gap-1.5">
+                  <User className="w-3 h-3" /> Viewer Session:
+                </span>
+                <strong className="text-white">{viewer.id}</strong>
+              </div>
+
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-white/60 block mb-1">
                   {isAr ? "الاسم بالكامل" : "Full Name"}
@@ -1020,7 +1187,7 @@ export default function StorefrontPage() {
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-white/60 block mb-1">
-                  {isAr ? "عنوان التوصيل" : "Delivery Address (Cairo / Egypt)"}
+                  {isAr ? "عنوان التوصيل" : `Delivery Address (${currentStore.city} / ${currentStore.country})`}
                 </label>
                 <input
                   type="text"
@@ -1049,13 +1216,15 @@ export default function StorefrontPage() {
               <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between mt-2">
                 <div>
                   <span className="text-[10px] text-white/50 block">Amount Due</span>
-                  <span className="text-sm font-black font-mono text-blue-400">EGP {grandTotal.toLocaleString()}</span>
+                  <span className="text-sm font-black font-mono text-blue-400">
+                    {currentStore.currency} {grandTotal.toLocaleString()}
+                  </span>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] text-emerald-400 font-bold block flex items-center gap-1 justify-end">
                     <ShieldCheck className="w-3.5 h-3.5" /> 100% Encrypted
                   </span>
-                  <span className="text-[9px] text-white/40">Syncing with POS Cashier</span>
+                  <span className="text-[9px] text-white/40">Syncing with {currentStore.name} POS</span>
                 </div>
               </div>
 
@@ -1070,7 +1239,11 @@ export default function StorefrontPage() {
                 ) : (
                   <>
                     <Zap className="w-4 h-4" />
-                    <span>{isAr ? "تأكيد الطلب والدفع" : `Confirm & Pay (EGP ${grandTotal.toLocaleString()})`}</span>
+                    <span>
+                      {isAr
+                        ? "تأكيد الطلب والدفع"
+                        : `Confirm & Pay (${currentStore.currency} ${grandTotal.toLocaleString()})`}
+                    </span>
                   </>
                 )}
               </button>
@@ -1095,11 +1268,11 @@ export default function StorefrontPage() {
                     {placedOrderInfo.items_count} items across {placedOrderInfo.stores?.length || 1} stores
                   </p>
                   <p className="text-[11px] font-mono font-bold text-emerald-400">
-                    EGP {placedOrderInfo.amount.toLocaleString()}
+                    {placedOrderInfo.currency} {placedOrderInfo.amount.toLocaleString()}
                   </p>
                   <div className="pt-1 text-[9px] text-emerald-300 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
-                    <span>Real-time POS Cashier Terminal Notified</span>
+                    <span>Live POS Cashier Terminal Notified</span>
                   </div>
                 </div>
               )}
@@ -1138,7 +1311,7 @@ export default function StorefrontPage() {
                     : "Back to Cart"
                   : isAr
                   ? `إتمام الشراء (${totalItemsCount})`
-                  : `Checkout (${totalItemsCount}) · EGP ${grandTotal.toLocaleString()}`
+                  : `Checkout (${totalItemsCount}) · ${currentStore.currency} ${grandTotal.toLocaleString()}`
                 : isAr
                 ? `عرض السلة (${totalItemsCount})`
                 : `Universal FastCart (${totalItemsCount})`}
@@ -1148,5 +1321,19 @@ export default function StorefrontPage() {
         </div>
       </aside>
     </div>
+  );
+}
+
+export default function StorefrontPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#060608] text-white flex items-center justify-center font-mono text-xs">
+          Loading Matager Universal FastCart & Storefront...
+        </div>
+      }
+    >
+      <StorefrontContent />
+    </Suspense>
   );
 }
