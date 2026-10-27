@@ -1,0 +1,18 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "stores": {
+      "$storeId": {
+        ".read": true,
+        ".write": "auth != null && (auth.uid === data.child('owner_id').val() || !data.exists())"
+      }
+    },
+    "orders": {
+      "$storeId": {
+        ".read": "auth != null",
+        ".write": true
+      }
+    }
+  }
+}

@@ -1,0 +1,318 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATAGER THEME SYSTEM — BASEDASH STYLE TOKENS
+   Midnight data terminal with frosted type & dual theme support
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Self-hosted / Google Font font-face for Fustat (Arabic Subtitles & Body) */
+@font-face {
+  font-family: 'Fustat';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('https://fonts.gstatic.com/s/fustat/v2/NaPZcZSZvG9WbY_hL1Z9.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+08A0-08E1, U+08E3-08FF;
+}
+
+:root {
+  /* ─── BASEDASH CANONICAL TOKENS (DARK OBSIDIAN PALETTE) ─── */
+  --color-void-black: #000000;
+  --color-carbon-card: #050607;
+  --color-ghost-white: #ffffff;
+  --color-bone-white: #e8eaee;
+  --color-ash-gray: #b3b3b3;
+  --color-steel-gray: #808080;
+  --color-graphite: #333333;
+  --color-lavender-pulse: #9984d8;
+  --color-mint-signal: #3fcb7f;
+
+  /* ─── SPACING SCALE (Base unit: 4px) ─── */
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-28: 28px;
+  --spacing-32: 32px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-56: 56px;
+  --spacing-80: 80px;
+  --spacing-96: 96px;
+  --spacing-120: 120px;
+  --spacing-128: 128px;
+
+  /* ─── RADII ─── */
+  --radius-cards: 16px;
+  --radius-badges: 999px;
+  --radius-inputs: 6px;
+  --radius-buttons: 6px;
+
+  /* ─── LAYOUT METRICS ─── */
+  --page-max-width: 1200px;
+  --section-gap: 100px;
+  --card-padding: 20px;
+  --element-gap: 12px;
+
+  /* ─── TYPE SCALE (Latin Baseline) ─── */
+  --text-caption: 12px;
+  --leading-caption: 1.5;
+  --tracking-caption: -0.03em;
+
+  --text-body-sm: 14px;
+  --leading-body-sm: 1.43;
+  --tracking-body-sm: -0.03em;
+
+  --text-body: 16px;
+  --leading-body: 1.5;
+  --tracking-body: -0.03em;
+
+  --text-body-lg: 18px;
+  --leading-body-lg: 1.56;
+  --tracking-body-lg: -0.03em;
+
+  --text-subheading: 24px;
+  --leading-subheading: 1.25;
+  --tracking-subheading: -0.025em;
+
+  --text-heading-sm: 30px;
+  --leading-heading-sm: 1.2;
+  --tracking-heading-sm: -0.03em;
+
+  --text-heading: 34px;
+  --leading-heading: 1.2;
+  --tracking-heading: -0.03em;
+
+  --text-display: 48px;
+  --leading-display: 1.0;
+  --tracking-display: 0px;
+
+  /* Default Typography Variables (English Mode: Josefin Sans & Poiret One) */
+  --font-heading: var(--font-josefin), sans-serif;
+  --font-subtitle: var(--font-poiret), sans-serif;
+  --font-ui: var(--font-josefin), var(--font-poiret), sans-serif;
+
+  /* Atmospheric & Primary Gradients */
+  --gradient-primary: linear-gradient(135deg, #0479E8 0%, #0083FE 100%);
+  --color-primary-dark: #0479E8;
+  --color-primary-light: #0083FE;
+  --color-accent-blue-dark: #0479E8;
+  --color-accent-blue-light: #0083FE;
+  --input-bg-gradient: linear-gradient(135deg, #1a1a24 0%, #2a3a50 100%);
+  --input-border-color: rgba(4, 121, 232, 0.35);
+  --gradient-atmospheric: radial-gradient(circle at 50% 0%, rgba(4, 121, 232, 0.32) 0%, rgba(0, 131, 254, 0.16) 40%, rgba(4, 121, 232, 0.05) 70%, transparent 100%);
+  --gradient-glow-mint: radial-gradient(circle at 50% 50%, rgba(63, 203, 127, 0.22) 0%, transparent 70%);
+
+  /* ─── DEFAULT THEME: DARK (BASEDASH TERMINAL) ─── */
+  --color-canvas: #000000;
+  --color-surface: #050607;
+  --color-surface-elevated: #090a0d;
+  --color-surface-hover: #0f1115;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b3b3b3;
+  --color-text-muted: #808080;
+  --color-border: #333333;
+  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-border-hover: #808080;
+  --color-accent-violet: #0083FE;
+  --color-accent-mint: #3fcb7f;
+
+  /* Interactive Elements */
+  --color-btn-primary-bg: #ffffff;
+  --color-btn-primary-text: #000000;
+  --color-btn-ghost-text: #ffffff;
+  --color-btn-ghost-hover: rgba(255, 255, 255, 0.08);
+  --color-btn-outline-border: #808080;
+  --color-badge-bg: transparent;
+  --color-badge-border: #808080;
+  --color-badge-text: #ffffff;
+
+  /* Terminal Surface */
+  --color-terminal-bar: #08090b;
+  --color-terminal-code: #e8eaee;
+  --color-card-border: #1a1a1a;
+  --color-overlay-wash: rgba(0, 0, 0, 0.7);
+
+  /* Glass Card Design Tokens */
+  --color-glass-card-bg: #050607;
+  --color-glass-card-border: rgba(255, 255, 255, 0.07);
+  --shadow-glass-card: 0 32px 70px -20px rgba(0, 0, 0, 0.75);
+
+  /* Status Colors */
+  --color-status-amber: #f59e0b;
+  --color-status-amber-bg: rgba(245, 158, 11, 0.1);
+  --color-status-amber-border: rgba(245, 158, 11, 0.2);
+  --color-status-green: #3fcb7f;
+  --color-status-green-bg: rgba(63, 203, 127, 0.1);
+  --color-status-green-border: rgba(63, 203, 127, 0.2);
+  --color-status-blue: #0083fe;
+  --color-status-blue-bg: rgba(0, 131, 254, 0.1);
+  --color-status-blue-border: rgba(0, 131, 254, 0.2);
+  --color-status-purple: #a855f7;
+  --color-status-purple-bg: rgba(168, 85, 247, 0.1);
+  --color-status-purple-border: rgba(168, 85, 247, 0.2);
+  --color-status-red: #ef4444;
+  --color-status-red-bg: rgba(239, 68, 68, 0.1);
+  --color-status-red-border: rgba(239, 68, 68, 0.2);
+  --color-status-orange: #f97316;
+  --color-status-orange-bg: rgba(249, 115, 22, 0.1);
+  --color-status-orange-border: rgba(249, 115, 22, 0.2);
+}
+
+/* ─── ARABIC TYPOGRAPHY OVERRIDES ─── */
+[lang="ar"],
+[dir="rtl"] {
+  --font-heading: var(--font-reem-kufi), 'Fustat', sans-serif;
+  --font-subtitle: 'Fustat', var(--font-reem-kufi), sans-serif;
+  --font-ui: 'Fustat', var(--font-reem-kufi), sans-serif;
+
+  /* Arabic line heights and letter-spacing adjustments */
+  --leading-display: 1.25;
+  --leading-heading: 1.35;
+  --leading-heading-sm: 1.35;
+  --leading-subheading: 1.4;
+  --leading-body-lg: 1.7;
+  --leading-body: 1.65;
+  --leading-body-sm: 1.6;
+  --leading-caption: 1.55;
+
+  /* Never use negative letter spacing on cursive Arabic glyphs */
+  --tracking-caption: 0px;
+  --tracking-body-sm: 0px;
+  --tracking-body: 0px;
+  --tracking-body-lg: 0px;
+  --tracking-subheading: 0px;
+  --tracking-heading-sm: 0px;
+  --tracking-heading: 0px;
+  --tracking-display: 0px;
+}
+
+/* ─── LIGHT THEME OVERRIDES ─── */
+[data-theme="light"] {
+  --color-canvas: #fcfcfd;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #f4f5f7;
+  --color-surface-hover: #ebedf0;
+  --color-text-primary: #0a0b0d;
+  --color-text-secondary: #4b5260;
+  --color-text-muted: #6b7280;
+  --color-border: #e3e6eb;
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+  --color-border-hover: #9ca3af;
+  --color-accent-violet: #0479E8;
+  --color-accent-mint: #159c53;
+  --input-bg-gradient: linear-gradient(135deg, #f0f6ff 0%, #e2eeff 100%);
+  --input-border-color: rgba(4, 121, 232, 0.25);
+
+  /* Interactive Elements */
+  --color-btn-primary-bg: #0a0b0d;
+  --color-btn-primary-text: #ffffff;
+  --color-btn-ghost-text: #0a0b0d;
+  --color-btn-ghost-hover: rgba(0, 0, 0, 0.05);
+  --color-btn-outline-border: #d1d5db;
+  --color-badge-bg: #f3f4f6;
+  --color-badge-border: #d1d5db;
+  --color-badge-text: #111827;
+
+  /* Terminal Surface */
+  --color-terminal-bar: #f1f3f6;
+  --color-terminal-code: #1f2937;
+  --color-card-border: #e5e7eb;
+  --color-overlay-wash: rgba(255, 255, 255, 0.85);
+
+  /* Glass Card Design Tokens (Light) */
+  --color-glass-card-bg: #ffffff;
+  --color-glass-card-border: rgba(0, 0, 0, 0.08);
+  --shadow-glass-card: 0 20px 40px -15px rgba(0, 0, 0, 0.07);
+
+  /* Status Colors (Light) */
+  --color-status-amber: #d97706;
+  --color-status-amber-bg: rgba(217, 119, 6, 0.1);
+  --color-status-amber-border: rgba(217, 119, 6, 0.2);
+  --color-status-green: #159c53;
+  --color-status-green-bg: rgba(21, 156, 83, 0.1);
+  --color-status-green-border: rgba(21, 156, 83, 0.2);
+  --color-status-blue: #0479e8;
+  --color-status-blue-bg: rgba(4, 121, 232, 0.1);
+  --color-status-blue-border: rgba(4, 121, 232, 0.2);
+  --color-status-purple: #9333ea;
+  --color-status-purple-bg: rgba(147, 51, 234, 0.1);
+  --color-status-purple-border: rgba(147, 51, 234, 0.2);
+  --color-status-red: #dc2626;
+  --color-status-red-bg: rgba(220, 38, 38, 0.1);
+  --color-status-red-border: rgba(220, 38, 38, 0.2);
+  --color-status-orange: #ea580c;
+  --color-status-orange-bg: rgba(234, 88, 12, 0.1);
+  --color-status-orange-border: rgba(234, 88, 12, 0.2);
+
+  --gradient-atmospheric: radial-gradient(circle at 50% 0%, rgba(4, 121, 232, 0.2) 0%, rgba(0, 131, 254, 0.1) 40%, transparent 80%);
+}
+
+/* ─── EXPLICIT DARK THEME (Identical to default) ─── */
+[data-theme="dark"] {
+  --color-canvas: #000000;
+  --color-surface: #050607;
+  --color-surface-elevated: #090a0d;
+  --color-surface-hover: #0f1115;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b3b3b3;
+  --color-text-muted: #808080;
+  --color-border: #333333;
+  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-border-hover: #808080;
+  --color-accent-violet: #0083FE;
+  --color-accent-mint: #3fcb7f;
+  --input-bg-gradient: linear-gradient(135deg, #1a1a24 0%, #2a3a50 100%);
+  --input-border-color: rgba(4, 121, 232, 0.35);
+
+  --color-btn-primary-bg: #ffffff;
+  --color-btn-primary-text: #000000;
+  --color-btn-ghost-text: #ffffff;
+  --color-btn-ghost-hover: rgba(255, 255, 255, 0.08);
+  --color-btn-outline-border: #808080;
+  --color-badge-bg: transparent;
+  --color-badge-border: #808080;
+  --color-badge-text: #ffffff;
+
+  --color-terminal-bar: #08090b;
+  --color-terminal-code: #e8eaee;
+  --color-card-border: #1a1a1a;
+  --color-overlay-wash: rgba(0, 0, 0, 0.7);
+
+  /* Glass Card Design Tokens (Dark) */
+  --color-glass-card-bg: #050607;
+  --color-glass-card-border: rgba(255, 255, 255, 0.07);
+  --shadow-glass-card: 0 32px 70px -20px rgba(0, 0, 0, 0.75);
+
+  /* Status Colors (Dark) */
+  --color-status-amber: #f59e0b;
+  --color-status-amber-bg: rgba(245, 158, 11, 0.1);
+  --color-status-amber-border: rgba(245, 158, 11, 0.2);
+  --color-status-green: #3fcb7f;
+  --color-status-green-bg: rgba(63, 203, 127, 0.1);
+  --color-status-green-border: rgba(63, 203, 127, 0.2);
+  --color-status-blue: #0083fe;
+  --color-status-blue-bg: rgba(0, 131, 254, 0.1);
+  --color-status-blue-border: rgba(0, 131, 254, 0.2);
+  --color-status-purple: #a855f7;
+  --color-status-purple-bg: rgba(168, 85, 247, 0.1);
+  --color-status-purple-border: rgba(168, 85, 247, 0.2);
+  --color-status-red: #ef4444;
+  --color-status-red-bg: rgba(239, 68, 68, 0.1);
+  --color-status-red-border: rgba(239, 68, 68, 0.2);
+  --color-status-orange: #f97316;
+  --color-status-orange-bg: rgba(249, 115, 22, 0.1);
+  --color-status-orange-border: rgba(249, 115, 22, 0.2);
+
+  --gradient-atmospheric: radial-gradient(circle at 50% 0%, rgba(4, 121, 232, 0.32) 0%, rgba(0, 131, 254, 0.16) 40%, rgba(4, 121, 232, 0.05) 70%, transparent 100%);
+}
+
+/* ─── PREFERS-REDUCED-MOTION ─── */
+@media (prefers-reduced-motion: reduce) {
+  html, body, *, *::before, *::after {
+    transition: none !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,953 @@
+/**
+ * Cloud Firestore Service Layer for Matager Platform
+ *
+ * Implements store owner registration, multi-tenant store initialization,
+ * catalog seeding, order creation (from FastCart), and real-time dashboard subscriptions.
+ */
+
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+  increment,
+  type Unsubscribe,
+} from "firebase/firestore";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInAnonymously,
+  updateProfile,
+} from "firebase/auth";
+import { auth, db } from "./firebase";
+import type {
+  User,
+  Store,
+  Branch,
+  PosTerminal,
+  Employee,
+  Shift,
+  Category,
+  Product,
+  ProductOption,
+  ProductOptionValue,
+  ProductVariant,
+  ProductVariantStock,
+  Subscription,
+  Transaction,
+  TransactionItem,
+} from "./db-schema";
+
+export interface OnboardingData {
+  salesChannel: "hybrid" | "online" | "pos";
+  storeName: string;
+  legalName: string;
+  category: string;
+  country: string;
+  city: string;
+  address: string;
+  email: string;
+  phone: string;
+  password?: string;
+  selectedPlan: "starter" | "pro" | "enterprise";
+}
+
+/**
+ * Registers a new Store Owner via Firebase Auth, creates their User record,
+ * creates their Store document, and seeds initial store structure.
+ */
+export async function setupStoreOwnerAccount(
+  data: OnboardingData
+): Promise<{ user: User; store: Store }> {
+  let uid = "";
+  let userEmail = data.email.trim();
+  const password = data.password || "MatagerStore2026!";
+
+  try {
+    // 1. Authenticate with Firebase Auth
+    if (userEmail && userEmail.includes("@")) {
+      try {
+        const userCred = await createUserWithEmailAndPassword(auth, userEmail, password);
+        uid = userCred.user.uid;
+        await updateProfile(userCred.user, { displayName: data.storeName });
+      } catch (authErr: any) {
+        if (authErr?.code === "auth/email-already-in-use") {
+          try {
+            const userCred = await signInWithEmailAndPassword(auth, userEmail, password);
+            uid = userCred.user.uid;
+          } catch {
+            uid = `owner_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          }
+        } else {
+          // If auth domain or network restriction, generate client UID
+          const anon = await signInAnonymously(auth).catch(() => null);
+          uid = anon ? anon.user.uid : `owner_${Date.now()}`;
+        }
+      }
+    } else {
+      const anon = await signInAnonymously(auth).catch(() => null);
+      uid = anon ? anon.user.uid : `owner_${Date.now()}`;
+      userEmail = `${uid}@stores.matager.com`;
+    }
+  } catch (err) {
+    console.warn("Firebase Auth fallback used:", err);
+    uid = `owner_${Date.now()}`;
+  }
+
+  const nowIso = new Date().toISOString();
+  const storeId = `store_${uid}`;
+  const slug = data.storeName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "store";
+
+  // 2. Create User record in Firestore
+  const userRecord: User = {
+    id: uid,
+    name: data.storeName,
+    email: userEmail,
+    phone: data.phone,
+    role: "Store Owner",
+    store_id: storeId,
+    created_at: nowIso,
+  };
+
+  // 3. Create Store record in Firestore
+  const storeRecord: Store = {
+    id: storeId,
+    owner_id: uid,
+    name: data.storeName,
+    subdomain: `${slug}.matager.com`,
+    status: "Active",
+    kyc_status: "Approved",
+    gmv_30d: 48920,
+    orders_30d: 142,
+    category: data.category,
+    sales_channel: data.salesChannel,
+    plan: data.selectedPlan,
+    location: {
+      country: data.country,
+      city: data.city,
+      address: data.address,
+    },
+    contact: {
+      email: data.email,
+      phone: data.phone,
+    },
+    created_at: nowIso,
+  };
+
+  // 4. Save to Firestore
+  try {
+    await setDoc(doc(db, "User", uid), {
+      ...userRecord,
+      timestamp: serverTimestamp(),
+    });
+
+    await setDoc(doc(db, "Store", storeId), {
+      ...storeRecord,
+      timestamp: serverTimestamp(),
+    });
+
+    // Seed default branch
+    const branchId = `branch_${storeId}_1`;
+    const defaultBranch: Branch = {
+      id: branchId,
+      store_id: storeId,
+      name: `${data.storeName} — Flagship Branch`,
+      address: `${data.address}, ${data.city}`,
+      phone: data.phone,
+      status: "Active",
+      created_at: nowIso,
+    };
+    await setDoc(doc(db, "Branch", branchId), defaultBranch);
+
+    // Seed default POS terminal
+    const terminalId = `term_${storeId}_1`;
+    const defaultTerminal: PosTerminal = {
+      id: terminalId,
+      store_id: storeId,
+      branch_id: branchId,
+      name: "Register 1 (Main Cashier)",
+      device_serial: `POS-${Math.floor(1000 + Math.random() * 9000)}`,
+      status: "Active",
+      created_at: nowIso,
+    };
+    await setDoc(doc(db, "PosTerminal", terminalId), defaultTerminal);
+
+    // Seed initial category
+    const catId = `cat_${storeId}_1`;
+    const defaultCategory: Category = {
+      id: catId,
+      store_id: storeId,
+      name: data.category || "General Merchandise",
+      slug: slug,
+      path: `/${slug}`,
+      level: 1,
+      is_active: true,
+      created_at: nowIso,
+    };
+    await setDoc(doc(db, "Category", catId), defaultCategory);
+
+    // Seed initial product (SPU)
+    const prodId = `prod_${storeId}_1`;
+    const defaultProduct: Product = {
+      id: prodId,
+      store_id: storeId,
+      category_id: catId,
+      product_type: data.category || "Apparel",
+      name: `${data.storeName} Signature Item`,
+      slug: `${slug}-signature-item`,
+      description: "Handcrafted premium product created for unified commerce.",
+      brand: data.storeName,
+      base_price: 1250,
+      site_price: 1250,
+      tax_rate: 14,
+      currency: "EGP",
+      attributes: { origin: data.country, material: "Standard" },
+      has_variants: true,
+      is_active: true,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    await setDoc(doc(db, "Product", prodId), defaultProduct);
+
+    // Seed Product Option (Size)
+    const optId = `opt_${storeId}_1`;
+    const defaultOption: ProductOption = {
+      id: optId,
+      product_id: prodId,
+      store_id: storeId,
+      name: "Size",
+      code: "size",
+      position: 1,
+      created_at: nowIso,
+    };
+    await setDoc(doc(db, "ProductOption", optId), defaultOption);
+
+    // Seed Product Option Values (M, L)
+    const valMId = `val_${storeId}_m`;
+    await setDoc(doc(db, "ProductOptionValue", valMId), {
+      id: valMId,
+      option_id: optId,
+      product_id: prodId,
+      store_id: storeId,
+      value: "M",
+      code: "m",
+      position: 1,
+      created_at: nowIso,
+    } as ProductOptionValue);
+
+    // Seed Product Variant
+    const variantId = `var_${storeId}_1`;
+    const defaultVariant: ProductVariant = {
+      id: variantId,
+      product_id: prodId,
+      store_id: storeId,
+      sku: `${slug.toUpperCase()}-SIG-M`,
+      variant_name: "Medium (M)",
+      price: 1250,
+      stock_total: 45,
+      is_default: true,
+      is_active: true,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    await setDoc(doc(db, "ProductVariant", variantId), defaultVariant);
+
+    // Seed Variant Stock at Branch
+    const stockId = `stock_${variantId}_${branchId}`;
+    await setDoc(doc(db, "ProductVariantStock", stockId), {
+      id: stockId,
+      store_id: storeId,
+      variant_id: variantId,
+      branch_id: branchId,
+      quantity: 45,
+      reserved: 0,
+      low_stock_threshold: 5,
+      updated_at: nowIso,
+    } as ProductVariantStock);
+
+    // Seed Subscription
+    const subId = `sub_${storeId}`;
+    await setDoc(doc(db, "Subscription", subId), {
+      id: subId,
+      store_id: storeId,
+      plan_id: data.selectedPlan,
+      status: "Active",
+      mrr: data.selectedPlan === "starter" ? 499 : data.selectedPlan === "pro" ? 1299 : 2999,
+      current_period_start: nowIso,
+      current_period_end: new Date(Date.now() + 30 * 86400000).toISOString(),
+      created_at: nowIso,
+    } as Subscription);
+  } catch (dbErr) {
+    console.warn("Firestore seeding fallback to localStorage:", dbErr);
+  }
+
+  // Save session state to localStorage
+  if (typeof window !== "undefined") {
+    localStorage.setItem("matager_active_store_id", storeId);
+    localStorage.setItem("matager_active_store_name", data.storeName);
+    localStorage.setItem("matager_active_user_id", uid);
+    localStorage.setItem("matager_store_data", JSON.stringify(storeRecord));
+  }
+
+  return { user: userRecord, store: storeRecord };
+}
+
+/**
+ * Retrieves the currently active store ID or default fallback.
+ */
+export function getActiveStoreId(): string {
+  if (typeof window !== "undefined") {
+    return (
+      localStorage.getItem("matager_active_store_id") ||
+      "store_peacock_default"
+    );
+  }
+  return "store_peacock_default";
+}
+
+/**
+ * Creates an order in Firestore from Customer FastCart.
+ */
+export async function createFastCartOrder(params: {
+  storeId?: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress?: string;
+  items: Array<{
+    productId: string;
+    variantId?: string;
+    title: string;
+    price: number;
+    quantity: number;
+  }>;
+  paymentMethod: string;
+  totalAmount: number;
+}): Promise<Transaction> {
+  const storeId = params.storeId || getActiveStoreId();
+  const orderId = `ord_${Date.now()}`;
+  const nowIso = new Date().toISOString();
+
+  const transaction: Transaction = {
+    id: orderId,
+    store_id: storeId,
+    amount: params.totalAmount,
+    commission_earned: Math.round(params.totalAmount * 0.05),
+    gateway_fee: Math.round(params.totalAmount * 0.02),
+    status: "Completed",
+    type: "Order",
+    channel: "Online",
+    payment_method: params.paymentMethod,
+    customer_name: params.customerName,
+    customer_phone: params.customerPhone,
+    shipping_address: params.customerAddress,
+    items_count: params.items.reduce((acc, i) => acc + i.quantity, 0),
+    created_at: nowIso,
+  };
+
+  try {
+    await setDoc(doc(db, "Transaction", orderId), {
+      ...transaction,
+      timestamp: serverTimestamp(),
+    });
+
+    // Save items
+    for (let idx = 0; idx < params.items.length; idx++) {
+      const it = params.items[idx];
+      const itemId = `${orderId}_item_${idx + 1}`;
+      const itemRecord: TransactionItem = {
+        id: itemId,
+        transaction_id: orderId,
+        store_id: storeId,
+        product_id: it.productId,
+        variant_id: it.variantId || "default",
+        name_snapshot: it.title,
+        sku_snapshot: `SKU-${it.productId}`,
+        quantity: it.quantity,
+        unit_price: it.price,
+        discount_amount: 0,
+        tax_amount: Math.round(it.price * 0.14),
+        total: it.price * it.quantity,
+        created_at: nowIso,
+      };
+      await setDoc(doc(db, "TransactionItem", itemId), itemRecord);
+    }
+
+    // Increment store metric
+    const storeRef = doc(db, "Store", storeId);
+    await updateDoc(storeRef, {
+      orders_30d: increment(1),
+      gmv_30d: increment(params.totalAmount),
+    }).catch(() => null);
+  } catch (err) {
+    console.warn("Firestore order write error (persisting locally):", err);
+  }
+
+  // Also persist in localStorage for offline / fallback real-time event
+  if (typeof window !== "undefined") {
+    const existing = JSON.parse(localStorage.getItem("matager_local_orders") || "[]");
+    existing.unshift(transaction);
+    localStorage.setItem("matager_local_orders", JSON.stringify(existing.slice(0, 50)));
+
+    // Dispatch window event so dashboard components update instantly
+    window.dispatchEvent(
+      new CustomEvent("matager:new_order", { detail: transaction })
+    );
+  }
+
+  return transaction;
+}
+
+/**
+ * Real-time listener for Merchant Dashboard Recent Orders.
+ */
+export function subscribeToOrders(
+  storeId: string,
+  callback: (orders: Transaction[]) => void
+): Unsubscribe {
+  try {
+    const q = query(
+      collection(db, "Transaction"),
+      where("store_id", "==", storeId),
+      orderBy("created_at", "desc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const orders: Transaction[] = [];
+        snapshot.forEach((doc) => {
+          orders.push(doc.data() as Transaction);
+        });
+        callback(orders);
+      },
+      (err) => {
+        console.warn("Firestore onSnapshot error, falling back to local orders:", err);
+        // Fallback to local storage
+        if (typeof window !== "undefined") {
+          const local = JSON.parse(localStorage.getItem("matager_local_orders") || "[]");
+          callback(local);
+        }
+      }
+    );
+
+    return unsubscribe;
+  } catch {
+    if (typeof window !== "undefined") {
+      const local = JSON.parse(localStorage.getItem("matager_local_orders") || "[]");
+      callback(local);
+    }
+    return () => {};
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POS CASHIER TERMINALS & TRANSACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PosOrderParams {
+  storeId?: string;
+  terminalId: string;
+  terminalName?: string;
+  cashierName: string;
+  customerName?: string;
+  customerPhone?: string;
+  items: Array<{
+    productId: string;
+    variantId?: string;
+    title: string;
+    sku: string;
+    price: number;
+    quantity: number;
+    size?: string;
+    color?: string;
+  }>;
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  paymentMethod: "Cash" | "Card" | "Wallet" | "Mada" | string;
+  amountTendered?: number;
+  changeDue?: number;
+  notes?: string;
+}
+
+/**
+ * Creates an in-store POS transaction executed from the cashier register terminal.
+ */
+export async function createPosTransaction(params: PosOrderParams): Promise<Transaction> {
+  const storeId = params.storeId || getActiveStoreId();
+  const orderId = `POS-${Date.now().toString().slice(-6)}`;
+  const nowIso = new Date().toISOString();
+
+  const transaction: Transaction = {
+    id: orderId,
+    store_id: storeId,
+    amount: params.totalAmount,
+    commission_earned: Math.round(params.totalAmount * 0.05),
+    gateway_fee: params.paymentMethod === "Cash" ? 0 : Math.round(params.totalAmount * 0.015),
+    status: "Completed",
+    type: "Order",
+    channel: "POS",
+    payment_method: params.paymentMethod,
+    customer_name: params.customerName || "Walk-in Guest",
+    customer_phone: params.customerPhone || "N/A",
+    shipping_address: `In-Store Pickup · Terminal ${params.terminalName || params.terminalId}`,
+    items_count: params.items.reduce((acc, i) => acc + i.quantity, 0),
+    created_at: nowIso,
+  };
+
+  try {
+    await setDoc(doc(db, "Transaction", orderId), {
+      ...transaction,
+      terminal_id: params.terminalId,
+      terminal_name: params.terminalName || "Terminal 01",
+      cashier_name: params.cashierName,
+      subtotal: params.subtotal,
+      discount_amount: params.discountAmount,
+      tax_amount: params.taxAmount,
+      amount_tendered: params.amountTendered || params.totalAmount,
+      change_due: params.changeDue || 0,
+      timestamp: serverTimestamp(),
+    });
+
+    for (let idx = 0; idx < params.items.length; idx++) {
+      const it = params.items[idx];
+      const itemId = `${orderId}_item_${idx + 1}`;
+      const itemRecord: TransactionItem = {
+        id: itemId,
+        transaction_id: orderId,
+        store_id: storeId,
+        product_id: it.productId,
+        variant_id: it.variantId || "default",
+        name_snapshot: it.title,
+        sku_snapshot: it.sku,
+        quantity: it.quantity,
+        unit_price: it.price,
+        discount_amount: 0,
+        tax_amount: Math.round(it.price * 0.14),
+        total: it.price * it.quantity,
+        created_at: nowIso,
+      };
+      await setDoc(doc(db, "TransactionItem", itemId), itemRecord);
+    }
+
+    const storeRef = doc(db, "Store", storeId);
+    await updateDoc(storeRef, {
+      orders_30d: increment(1),
+      gmv_30d: increment(params.totalAmount),
+    }).catch(() => null);
+  } catch (err) {
+    console.warn("Firestore POS order write error (persisting locally):", err);
+  }
+
+  // Local storage persistence
+  if (typeof window !== "undefined") {
+    const existing = JSON.parse(localStorage.getItem("matager_local_orders") || "[]");
+    existing.unshift(transaction);
+    localStorage.setItem("matager_local_orders", JSON.stringify(existing.slice(0, 50)));
+
+    const posLedger = JSON.parse(localStorage.getItem(`matager_pos_ledger_${storeId}`) || "[]");
+    posLedger.unshift({
+      ...transaction,
+      terminal_id: params.terminalId,
+      cashier_name: params.cashierName,
+    });
+    localStorage.setItem(`matager_pos_ledger_${storeId}`, JSON.stringify(posLedger.slice(0, 50)));
+
+    window.dispatchEvent(
+      new CustomEvent("matager:new_order", { detail: transaction })
+    );
+    window.dispatchEvent(
+      new CustomEvent("matager:pos_sale", {
+        detail: {
+          ...transaction,
+          terminal_id: params.terminalId,
+          cashier_name: params.cashierName,
+        },
+      })
+    );
+  }
+
+  return transaction;
+}
+
+export interface PosNodeInfo {
+  id: string;
+  name: string;
+  branch: string;
+  staffName: string;
+  pin: string;
+  status: "Active" | "Offline" | "Break";
+  todaySales: number;
+  todayOrders: number;
+  lastActive: string;
+}
+
+/**
+ * Returns all POS cashier nodes configured for a store.
+ */
+export function getStorePosNodes(storeId?: string): PosNodeInfo[] {
+  const activeId = storeId || getActiveStoreId();
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem(`matager_pos_nodes_${activeId}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // fallback
+      }
+    }
+  }
+
+  // Default seed nodes for store
+  const defaultNodes: PosNodeInfo[] = [
+    {
+      id: "TERM-01",
+      name: "Main Register 01",
+      branch: "Cairo Heliopolis Flagship",
+      staffName: "Mohamed Ahmed",
+      pin: "1234",
+      status: "Active",
+      todaySales: 18450,
+      todayOrders: 24,
+      lastActive: "Just now",
+    },
+    {
+      id: "TERM-02",
+      name: "Express Counter 02",
+      branch: "Cairo Heliopolis Flagship",
+      staffName: "Sara Khaled",
+      pin: "5678",
+      status: "Active",
+      todaySales: 9800,
+      todayOrders: 14,
+      lastActive: "4m ago",
+    },
+    {
+      id: "TERM-03",
+      name: "VIP Lounge Mobile POS",
+      branch: "New Cairo Branch",
+      staffName: "Omar Tarek",
+      pin: "9012",
+      status: "Break",
+      todaySales: 4300,
+      todayOrders: 5,
+      lastActive: "18m ago",
+    },
+    {
+      id: "TERM-04",
+      name: "Warehouse Dispatch POS",
+      branch: "Alexandria Depot",
+      staffName: "Youssef Nabil",
+      pin: "3456",
+      status: "Offline",
+      todaySales: 0,
+      todayOrders: 0,
+      lastActive: "Yesterday",
+    },
+  ];
+
+  if (typeof window !== "undefined") {
+    localStorage.setItem(`matager_pos_nodes_${activeId}`, JSON.stringify(defaultNodes));
+  }
+  return defaultNodes;
+}
+
+/**
+ * Adds a new POS Cashier node / terminal for the store's staff.
+ */
+export function createStorePosNode(
+  node: Omit<PosNodeInfo, "id" | "todaySales" | "todayOrders" | "lastActive">,
+  storeId?: string
+): PosNodeInfo {
+  const activeId = storeId || getActiveStoreId();
+  const currentNodes = getStorePosNodes(activeId);
+  const newNode: PosNodeInfo = {
+    ...node,
+    id: `TERM-0${currentNodes.length + 1}`,
+    todaySales: 0,
+    todayOrders: 0,
+    lastActive: "Created just now",
+  };
+
+  currentNodes.push(newNode);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(`matager_pos_nodes_${activeId}`, JSON.stringify(currentNodes));
+    window.dispatchEvent(new CustomEvent("matager:pos_nodes_updated", { detail: currentNodes }));
+  }
+  return newNode;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUPER ADMIN MULTI-STORE PLATFORM CONTROLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PlatformStoreTenant {
+  id: string;
+  name: string;
+  subdomain: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  country: string;
+  city: string;
+  plan: string;
+  status: "Active" | "Trial" | "Past Due" | "Suspended" | "Pending";
+  gmv_30d: number;
+  orders_30d: number;
+  posNodesCount: number;
+  onlineSharePercent: number;
+  posSharePercent: number;
+  commissionRate: number;
+  created_at: string;
+}
+
+const DEFAULT_PLATFORM_STORES: PlatformStoreTenant[] = [
+  {
+    id: "ST-0001",
+    name: "Peacock Store",
+    subdomain: "peacock.matager.com",
+    ownerName: "Mohamed Ahmed",
+    ownerEmail: "mohamed@peacockstore.com",
+    ownerPhone: "+20 100 458 9201",
+    country: "Egypt",
+    city: "Cairo",
+    plan: "Matager-100",
+    status: "Active",
+    gmv_30d: 84200,
+    orders_30d: 412,
+    posNodesCount: 4,
+    onlineSharePercent: 62,
+    posSharePercent: 38,
+    commissionRate: 5.0,
+    created_at: "2026-01-15T10:00:00Z",
+  },
+  {
+    id: "ST-0014",
+    name: "Urban Kicks",
+    subdomain: "urbankicks.matager.com",
+    ownerName: "Sara Khaled",
+    ownerEmail: "sara@urbankicks.co",
+    ownerPhone: "+20 102 789 1234",
+    country: "Egypt",
+    city: "Alexandria",
+    plan: "Matager-250",
+    status: "Active",
+    gmv_30d: 156900,
+    orders_30d: 890,
+    posNodesCount: 6,
+    onlineSharePercent: 45,
+    posSharePercent: 55,
+    commissionRate: 5.0,
+    created_at: "2026-02-01T12:00:00Z",
+  },
+  {
+    id: "ST-0092",
+    name: "TechNest Saudi",
+    subdomain: "technest.matager.com",
+    ownerName: "Fahad Al-Otaibi",
+    ownerEmail: "fahad@technest.sa",
+    ownerPhone: "+966 50 123 4567",
+    country: "Saudi Arabia",
+    city: "Riyadh",
+    plan: "Matager-100",
+    status: "Trial",
+    gmv_30d: 12400,
+    orders_30d: 76,
+    posNodesCount: 2,
+    onlineSharePercent: 80,
+    posSharePercent: 20,
+    commissionRate: 4.5,
+    created_at: "2026-03-10T14:30:00Z",
+  },
+  {
+    id: "ST-0231",
+    name: "Bloom Boutique",
+    subdomain: "bloom.matager.com",
+    ownerName: "Layla Mansour",
+    ownerEmail: "layla@bloomboutique.ae",
+    ownerPhone: "+971 55 987 6543",
+    country: "UAE",
+    city: "Dubai",
+    plan: "Matager-50",
+    status: "Past Due",
+    gmv_30d: 3120,
+    orders_30d: 21,
+    posNodesCount: 1,
+    onlineSharePercent: 30,
+    posSharePercent: 70,
+    commissionRate: 5.0,
+    created_at: "2026-02-20T08:15:00Z",
+  },
+  {
+    id: "ST-0455",
+    name: "GearUp Sports",
+    subdomain: "gearup.matager.com",
+    ownerName: "Tarek Nour",
+    ownerEmail: "tarek@gearup.com",
+    ownerPhone: "+20 111 654 3210",
+    country: "Egypt",
+    city: "Giza",
+    plan: "Matager-500",
+    status: "Active",
+    gmv_30d: 342000,
+    orders_30d: 1204,
+    posNodesCount: 8,
+    onlineSharePercent: 58,
+    posSharePercent: 42,
+    commissionRate: 4.0,
+    created_at: "2025-11-05T09:40:00Z",
+  },
+  {
+    id: "ST-0512",
+    name: "Aura Fragrances",
+    subdomain: "aura.matager.com",
+    ownerName: "Amira Zaki",
+    ownerEmail: "amira@aurafragrances.ma",
+    ownerPhone: "+212 60 123 9876",
+    country: "Morocco",
+    city: "Casablanca",
+    plan: "Matager-100",
+    status: "Pending",
+    gmv_30d: 0,
+    orders_30d: 0,
+    posNodesCount: 1,
+    onlineSharePercent: 100,
+    posSharePercent: 0,
+    commissionRate: 5.0,
+    created_at: "2026-04-12T16:00:00Z",
+  },
+];
+
+/**
+ * Returns all stores across the entire platform for Super Admin.
+ */
+export function getAllPlatformStores(): PlatformStoreTenant[] {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("matager_platform_stores");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // fallback
+      }
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    localStorage.setItem("matager_platform_stores", JSON.stringify(DEFAULT_PLATFORM_STORES));
+  }
+  return DEFAULT_PLATFORM_STORES;
+}
+
+/**
+ * Updates a store's status (Active, Trial, Past Due, Suspended, Pending).
+ */
+export function updatePlatformStoreStatus(
+  storeId: string,
+  newStatus: PlatformStoreTenant["status"]
+): PlatformStoreTenant[] {
+  const stores = getAllPlatformStores();
+  const updated = stores.map((s) => (s.id === storeId ? { ...s, status: newStatus } : s));
+
+  if (typeof window !== "undefined") {
+    localStorage.setItem("matager_platform_stores", JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent("matager:stores_updated", { detail: updated }));
+  }
+
+  // Update in Firestore asynchronously
+  updateDoc(doc(db, "Store", storeId), { status: newStatus }).catch(() => null);
+
+  return updated;
+}
+
+/**
+ * Deletes a store and all its associated data from the platform.
+ */
+export function deletePlatformStore(storeId: string): PlatformStoreTenant[] {
+  const stores = getAllPlatformStores();
+  const updated = stores.filter((s) => s.id !== storeId);
+
+  if (typeof window !== "undefined") {
+    localStorage.setItem("matager_platform_stores", JSON.stringify(updated));
+    localStorage.removeItem(`matager_pos_nodes_${storeId}`);
+    localStorage.removeItem(`matager_pos_ledger_${storeId}`);
+    window.dispatchEvent(new CustomEvent("matager:stores_updated", { detail: updated }));
+  }
+
+  // Remove from Firestore asynchronously
+  deleteDoc(doc(db, "Store", storeId)).catch(() => null);
+
+  return updated;
+}
+
+/**
+ * Provisions a brand new store from the Super Admin platform wizard.
+ */
+export function provisionNewStoreFromAdmin(data: {
+  storeName: string;
+  subdomain: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  country: string;
+  city: string;
+  plan: string;
+  posNodesCount?: number;
+}): PlatformStoreTenant {
+  const stores = getAllPlatformStores();
+  const newStoreId = `ST-${(stores.length + 1).toString().padStart(4, "0")}`;
+
+  const newStore: PlatformStoreTenant = {
+    id: newStoreId,
+    name: data.storeName,
+    subdomain: `${data.subdomain || data.storeName.toLowerCase().replace(/[^a-z0-9]+/g, "")}.matager.com`,
+    ownerName: data.ownerName,
+    ownerEmail: data.ownerEmail,
+    ownerPhone: data.ownerPhone,
+    country: data.country,
+    city: data.city,
+    plan: data.plan || "Matager-100",
+    status: "Active",
+    gmv_30d: 0,
+    orders_30d: 0,
+    posNodesCount: data.posNodesCount || 2,
+    onlineSharePercent: 50,
+    posSharePercent: 50,
+    commissionRate: 5.0,
+    created_at: new Date().toISOString(),
+  };
+
+  stores.unshift(newStore);
+
+  if (typeof window !== "undefined") {
+    localStorage.setItem("matager_platform_stores", JSON.stringify(stores));
+    window.dispatchEvent(new CustomEvent("matager:stores_updated", { detail: stores }));
+  }
+
+  // Also write to Firestore
+  setDoc(doc(db, "Store", newStoreId), {
+    id: newStoreId,
+    name: newStore.name,
+    subdomain: newStore.subdomain,
+    status: newStore.status,
+    kyc_status: "Approved",
+    gmv_30d: 0,
+    orders_30d: 0,
+    created_at: newStore.created_at,
+  }).catch(() => null);
+
+  return newStore;
+}
+

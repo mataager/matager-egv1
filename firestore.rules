@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User collection: protected, only owner can modify
+    match /User/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // Super Admin collection
+    match /AdminUser/{adminId} {
+      allow read, write: if isAuthenticated() && request.auth.token.role == "Super Admin";
+    }
+
+    // Stores: Public can read basic profile; only owner can modify
+    match /Store/{storeId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        resource.data.owner_id == request.auth.uid ||
+        request.resource.data.owner_id == request.auth.uid
+      );
+    }
+
+    // Products & Catalog: Publicly readable for FastCart storefront
+    match /Product/{productId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /Category/{categoryId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /ProductOption/{optionId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /ProductOptionValue/{valueId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /ProductVariant/{variantId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /ProductImage/{imageId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /ProductVariantStock/{stockId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Transactions & Orders:
+    // Customers can submit orders (FastCart checkout)
+    // Only authenticated store owners and staff can read and process their orders
+    match /Transaction/{transId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+    match /TransactionItem/{itemId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+
+    // POS & Operations
+    match /Branch/{branchId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /Employee/{employeeId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /PosTerminal/{terminalId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /Shift/{shiftId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Subscriptions & Financials
+    match /Subscription/{subId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /SubscriptionPlan/{planId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.token.role == "Super Admin";
+    }
+    match /Payout/{payoutId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Promo Codes
+    match /PromoCode/{codeId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /PromoCodeRedemption/{redemptId} {
+      allow create: if true;
+      allow read: if isAuthenticated();
+    }
+  }
+}

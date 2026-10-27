@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-theme="dark" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Peacock Store — Matager Universal FastCart & 3D Gallery</title>
+    <link rel="icon" type="image/png" href="./favicon/favico.png">
+
+    <!-- Core CSS -->
+    <link rel="stylesheet" href="./assets/style/bgroot.css">
+    <link rel="stylesheet" href="./assets/style/identity.css">
+    <link rel="stylesheet" href="./assets/style/customerview-premium.css">
+
+    <!-- Tailwind + Icons + Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            blue: '#3b82f6',
+                            sky: '#38bdf8',
+                            dark: '#0f172a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="./assets/firebase/config.js"></script>
+
+    <!-- Scripts -->
+    <script src="./assets/functions/log/consolelog.js"></script>
+    <script src="./assets/functions/visuals/sounds.js"></script>
+    <script src="./assets/functions/system/dictionary.js"></script>
+    <script src="./assets/functions/system/datainjector.js"></script>
+    <script src="./assets/functions/system/dropdop.js"></script>
+    <!-- MATAGER UNIVERSAL SERVICE (SDK) - Replaces doc.js -->
+    <script src="./assets/functions/system/matager-service.js"></script>
+    <!-- Antigravity Gallery Switcher -->
+    <script src="./assets/functions/system/switcher.js"></script>
+
+    <style>
+        /* Antigravity Storefront Navigation & UI Enhancement */
+        .store-top-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            background: rgba(10, 10, 12, 0.75);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
+        }
+        [data-theme="light"] .store-top-bar {
+            background: rgba(255, 255, 255, 0.85);
+            border-bottom-color: rgba(0, 0, 0, 0.08);
+            color: #0f172a;
+        }
+        [data-theme="light"] body {
+            background: #f8fafc;
+            color: #0f172a;
+        }
+        [data-theme="light"] .product-card {
+            background: rgba(255, 255, 255, 0.85) !important;
+            border-color: rgba(0, 0, 0, 0.08) !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .store-hero {
+            background: rgba(255, 255, 255, 0.7);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+        [data-theme="light"] .store-hero-name {
+            color: #0f172a;
+        }
+        [data-theme="light"] .stat-value {
+            color: #0f172a;
+        }
+        [data-theme="light"] .store-hero-btn {
+            background: rgba(0, 0, 0, 0.04);
+            color: #0f172a;
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* 3D Parallax Stage */
+        .matager-customer-shell {
+            perspective: 1200px;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), filter 0.8s ease;
+            width: 100%;
+        }
+
+        /* Product Cards */
+        .product-card {
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .product-card:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+
+<body class="antialiased content-loaded font-sans">
+
+    <!-- ═══════════════════════════════════════════════════════════
+       STORE TOP SYSTEM BAR (THEME / LANGUAGE / POS SYNC)
+       ═══════════════════════════════════════════════════════════ -->
+    <header class="store-top-bar px-4 py-2.5 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-3">
+            <a href="/dashboard" class="flex items-center gap-2 text-white font-bold hover:text-blue-400 transition-colors" title="Back to Merchant Dashboard">
+                <span class="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center text-white text-[11px] font-black">M</span>
+                <span class="hidden sm:inline">Matager OS</span>
+            </a>
+            <span class="w-px h-3.5 bg-white/20"></span>
+            <div class="flex items-center gap-1.5 text-emerald-400 font-mono text-[11px] font-bold">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>POS Sync Online</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Mode Switcher -->
+            <button type="button" onclick="onTogglePresentation()" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold flex items-center gap-1.5 transition-all" id="modeToggleBtn">
+                <i class="bi bi-grid-3x3-gap-fill text-blue-400"></i>
+                <span id="modeToggleText">Gallery Mode</span>
+            </button>
+
+            <!-- Language Switcher -->
+            <button type="button" onclick="toggleStoreLanguage()" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all" id="storeLangBtn" title="Switch Language">
+                <i class="bi bi-translate text-blue-400 mr-1"></i>
+                <span id="storeLangLabel">عربي</span>
+            </button>
+
+            <!-- Theme Switcher -->
+            <button type="button" onclick="toggleStoreTheme()" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white flex items-center justify-center transition-all" id="storeThemeBtn" title="Toggle Theme">
+                <i class="bi bi-sun text-yellow-400" id="storeThemeIcon"></i>
+            </button>
+
+            <!-- POS Link -->
+            <a href="/cashier" target="_blank" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold transition-all flex items-center gap-1 hidden md:flex" title="Open Cashier Terminal">
+                <i class="bi bi-shop"></i>
+                <span>POS Cashier</span>
+            </a>
+
+            <!-- Admin Link -->
+            <a href="/dashboard" class="px-2.5 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 font-bold transition-all flex items-center gap-1">
+                <i class="bi bi-gear-fill"></i>
+                <span class="hidden sm:inline">Dashboard</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════════════════════
+       NAV-ANCHORED ALERT PILL
+       ═══════════════════════════════════════════════════════════ -->
+    <div id="nav-alert-pill" class="nav-alert-pill" role="status" aria-live="polite" aria-atomic="true">
+        <div class="nav-alert-icon-slot" data-state="idle"></div>
+        <div class="nav-alert-text-slot">
+            <p class="nav-alert-title"></p>
+            <p class="nav-alert-message"></p>
+        </div>
+        <button type="button" class="nav-alert-dismiss" aria-label="Dismiss notification">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <!-- Alert helper script -->
+    <script>
+        (function () {
+            'use strict';
+            const alertConfiguration = {
+                cart: { heading: 'Added to Cart', icon: 'bi-bag-check-fill', color: 'bg-emerald-500/20 text-emerald-400' },
+                auth: { heading: 'Security', icon: 'bi-shield-lock-fill', color: 'bg-blue-500/20 text-blue-400' },
+                success: { heading: 'Success', icon: 'bi-check-circle-fill', color: 'bg-emerald-500/20 text-emerald-400' },
+                logout: { heading: 'Session', icon: 'bi-door-open-fill', color: 'bg-orange-500/20 text-orange-400' },
+                favorite: { heading: 'Wishlist', icon: 'bi-heart-fill', color: 'bg-pink-500/20 text-pink-400' },
+                shipping: { heading: 'Delivery', icon: 'bi-truck', color: 'bg-indigo-500/20 text-indigo-400' },
+                reminder: { heading: 'Restock Alert', icon: 'bi-bell-fill', color: 'bg-amber-500/20 text-amber-400' }
+            };
+            const stateMap = { cart: 'success', auth: 'info', success: 'success', logout: 'warning', favorite: 'info', shipping: 'info', reminder: 'warning' };
+            const pill = document.getElementById('nav-alert-pill');
+            const pillIcon = pill?.querySelector('.nav-alert-icon-slot');
+            const pillTitle = pill?.querySelector('.nav-alert-title');
+            const pillMessage = pill?.querySelector('.nav-alert-message');
+            const pillDismiss = pill?.querySelector('.nav-alert-dismiss');
+            let pillTimer = null;
+
+            pillDismiss?.addEventListener('click', () => pill?.classList.remove('is-visible'));
+
+            function firePill(state, title, message) {
+                if (!pill) return;
+                pillIcon.dataset.state = state;
+                const cfg = alertConfiguration[state] || alertConfiguration.auth;
+                pillIcon.innerHTML = `<i class="bi ${cfg.icon}"></i>`;
+                pillTitle.textContent = title;
+                pillMessage.textContent = message;
+                pill.classList.add('is-visible');
+                clearTimeout(pillTimer);
+                pillTimer = setTimeout(() => pill.classList.remove('is-visible'), 4200);
+            }
+
+            window.showAlert = function (type, message) {
+                firePill(stateMap[type] || 'info', alertConfiguration[type]?.heading || 'Notice', message);
+            };
+
+            window.onTogglePresentation = function () {
+                const isGallery = document.body.classList.contains('is-gallery-active');
+                if (window.ShopEaseSounds && typeof window.ShopEaseSounds.play === 'function') {
+                    window.ShopEaseSounds.play(isGallery ? 'toggle-off' : 'toggle-on');
+                }
+                if (typeof window.togglePresentationMode === 'function') {
+                    window.togglePresentationMode();
+                }
+                const textEl = document.getElementById('modeToggleText');
+                if (textEl) {
+                    textEl.textContent = document.body.classList.contains('is-gallery-active') ? 'Cart Mode' : 'Gallery Mode';
+                }
+            };
+
+            // FastCart Add & Buy Now integration with Matager Universal Service
+            window.handleFastCartBuyNow = function (productId, productName, price, image, storeId, storeName) {
+                const targetStoreId = storeId || "peacock_store";
+                const targetStoreName = storeName || "Peacock Store";
+
+                if (window.MatagerService && typeof window.MatagerService.addToCart === 'function') {
+                    window.MatagerService.addToCart(targetStoreId, targetStoreName, {
+                        id: productId,
+                        title: productName,
+                        price: price,
+                        image: image || "https://assets.adidas.com/images/w_1880,f_auto,q_auto/a4ff4a779ee34deca8cc9a6f1f411440_9366/KC6611_HM1.jpg"
+                    });
+                } else if (typeof window.showAlert === 'function') {
+                    window.showAlert('cart', `Added ${productName} to Universal Cart`);
+                }
+            };
+
+            // Multi-Store Demo simulation (Add from a 2nd store to show grouping)
+            window.simulateCrossStoreAdd = function () {
+                if (window.MatagerService) {
+                    window.MatagerService.addToCart(
+                        "nike_studio_cairo",
+                        "Nike Studio Cairo",
+                        {
+                            id: "nk-270-blk",
+                            title: "Nike Air Max 270 (Black Edition)",
+                            price: 850,
+                            image: "https://assets.adidas.com/images/w_940,f_auto,q_auto/6044dd9dea9948f49524adaa00b9338b_9366/GZ1561_01_00_standard.jpg"
+                        }
+                    );
+                }
+            };
+
+            // Theme toggle
+            window.toggleStoreTheme = function () {
+                if (window.MatagerService && typeof window.MatagerService.toggleTheme === 'function') {
+                    window.MatagerService.toggleTheme();
+                } else {
+                    const isDark = document.documentElement.classList.toggle('dark');
+                    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+                }
+                syncThemeUI();
+            };
+
+            function syncThemeUI() {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || document.documentElement.classList.contains('dark');
+                const icon = document.getElementById('storeThemeIcon');
+                if (icon) {
+                    icon.className = isDark ? 'bi bi-sun text-yellow-400' : 'bi bi-moon-stars text-blue-500';
+                }
+            }
+
+            // Language toggle
+            window.toggleStoreLanguage = function () {
+                if (window.MatagerService && typeof window.MatagerService.toggleLanguage === 'function') {
+                    window.MatagerService.toggleLanguage();
+                } else {
+                    const current = document.documentElement.lang === 'ar' ? 'en' : 'ar';
+                    document.documentElement.lang = current;
+                    document.documentElement.dir = current === 'ar' ? 'rtl' : 'ltr';
+                }
+                syncLanguageUI();
+            };
+
+            function syncLanguageUI() {
+                const isAr = document.documentElement.lang === 'ar';
+                const label = document.getElementById('storeLangLabel');
+                if (label) {
+                    label.textContent = isAr ? 'English' : 'عربي';
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                syncThemeUI();
+                syncLanguageUI();
+            });
+        })();
+    </script>
+
+    <!-- ═══════════════════════════════════════════════════════════
+       MAIN CONTENT (PARALLAX SHELL)
+       ═══════════════════════════════════════════════════════════ -->
+    <main class="matager-customer-shell flex flex-col items-center">
+
+        <!-- ═══════════ STORE HERO (Cover + Profile) ═══════════ -->
+        <section class="w-full">
+            <article class="store-hero">
+                <div class="store-hero-cover">
+                    <img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&amp;q=80&amp;auto=format&amp;fit=crop"
+                        alt="Peacock Store cover" loading="eager" decoding="async">
+                </div>
+                <div class="store-hero-body">
+                    <div class="store-hero-profile">
+                        <img src="https://static.vecteezy.com/system/resources/previews/012/464/679/original/minimal-peacock-logo-vector.jpg"
+                            alt="Peacock Store logo" loading="eager" decoding="async">
+                    </div>
+                    <div class="store-hero-info">
+                        <div class="store-hero-name-row">
+                            <h1 class="store-hero-name">Peacock Store</h1>
+                            <span class="store-hero-verified"><i class="bi bi-patch-check-fill"></i></span>
+                        </div>
+                        <p class="store-hero-tagline">Premium products curated for modern lifestyle · Cairo Flagship</p>
+                        <div class="store-hero-stats">
+                            <div class="store-hero-stat">
+                                <span class="stat-value">1,284</span>
+                                <span class="stat-label">Products</span>
+                            </div>
+                            <div class="store-hero-stat">
+                                <span class="stat-value">284</span>
+                                <span class="stat-label">Followers</span>
+                            </div>
+                            <div class="store-hero-stat">
+                                <span class="stat-value">4.9 ★</span>
+                                <span class="stat-label">Rating (2.3k)</span>
+                            </div>
+                        </div>
+                        <div class="store-hero-badge-area">
+                            <span class="store-hero-badge">Apparel</span>
+                            <span class="store-hero-badge">Footwear</span>
+                            <span class="store-hero-badge">Accessories</span>
+                        </div>
+                    </div>
+                    <div class="store-hero-actions">
+                        <button type="button" onclick="simulateCrossStoreAdd()" class="store-hero-btn text-blue-400 border-blue-500/40" title="Simulate cross-store add from Nike Studio Cairo">
+                            <i class="bi bi-plus-circle-fill"></i> Add from Store B
+                        </button>
+                        <button type="button" onclick="window.MatagerService?.openCart()" class="store-hero-btn">
+                            <i class="bi bi-bag-check-fill"></i> Open FastCart
+                        </button>
+                        <!-- Animated Button for Mode Switch -->
+                        <button type="button" onclick="onTogglePresentation()" class="store-hero-btn is-primary">
+                            <i class="bi bi-grid-3x3-gap-fill"></i> Switch View
+                        </button>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <!-- ═══════════ PRODUCTS CATALOG (FASTCART STAGE) ═══════════ -->
+        <section id="products" class="w-full max-w-[1400px] px-4 sm:px-6 py-6">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                        <span>FastCart Featured Catalog</span>
+                        <span class="text-[9px] uppercase font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                            Zero-Gravity Synced
+                        </span>
+                    </h2>
+                    <p class="text-xs text-white/50 mt-0.5">Click any product to add to your universal floating cart with instant multi-store checkout.</p>
+                </div>
+                <button type="button" onclick="simulateCrossStoreAdd()" class="text-xs text-blue-400 hover:underline flex items-center gap-1 font-bold">
+                    <i class="bi bi-shop"></i>
+                    <span>Test Multi-Store Add</span>
+                </button>
+            </div>
+
+            <!-- Product Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Product 1 -->
+                <div class="product-card group relative bg-neutral-900/80 border border-white/10 rounded-2xl overflow-hidden p-3 flex flex-col justify-between">
+                    <div class="relative aspect-square rounded-xl overflow-hidden bg-black/60 mb-3">
+                        <img src="https://assets.adidas.com/images/w_1880,f_auto,q_auto/a4ff4a779ee34deca8cc9a6f1f411440_9366/KC6611_HM1.jpg" alt="Adidas Classic Tee" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                        <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-red-600/90 text-white text-[9px] font-black uppercase">50% OFF</span>
+                        <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-white text-[9px] font-mono">18 In Stock</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-blue-400 uppercase font-mono font-bold tracking-wider">Peacock Store · Apparel</span>
+                        <h3 class="text-sm font-bold text-white mt-0.5 leading-tight">Adidas Classic Graphic Tee</h3>
+                        <div class="flex items-baseline justify-between mt-2">
+                            <div>
+                                <span class="text-base font-black text-white">4,500</span>
+                                <span class="text-xs text-white/50 ml-1">EGP</span>
+                                <span class="text-xs text-white/30 line-through ml-1.5">9,000</span>
+                            </div>
+                            <span class="text-[10px] text-emerald-400 font-bold">Free Express</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/10">
+                        <button type="button" onclick="handleFastCartBuyNow('PROD_001', 'Adidas Classic Graphic Tee', 4500, 'https://assets.adidas.com/images/w_1880,f_auto,q_auto/a4ff4a779ee34deca8cc9a6f1f411440_9366/KC6611_HM1.jpg')" class="w-full py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                            <i class="bi bi-cart-plus"></i> Add
+                        </button>
+                        <button type="button" onclick="handleFastCartBuyNow('PROD_001', 'Adidas Classic Graphic Tee', 4500, 'https://assets.adidas.com/images/w_1880,f_auto,q_auto/a4ff4a779ee34deca8cc9a6f1f411440_9366/KC6611_HM1.jpg')" class="w-full py-2 rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 hover:brightness-110 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20">
+                            <i class="bi bi-lightning-charge-fill"></i> Fast Buy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Product 2 -->
+                <div class="product-card group relative bg-neutral-900/80 border border-white/10 rounded-2xl overflow-hidden p-3 flex flex-col justify-between">
+                    <div class="relative aspect-square rounded-xl overflow-hidden bg-black/60 mb-3">
+                        <img src="https://assets.adidas.com/images/w_1880,f_auto,q_auto/6f20fbc592f5410d83e7e3dd3e0926f0_9366/JS3268_01_00_standard.jpg" alt="Adidas Ultraboost 22" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                        <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-blue-600/90 text-white text-[9px] font-black uppercase">BEST SELLER</span>
+                        <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-white text-[9px] font-mono">42 In Stock</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-blue-400 uppercase font-mono font-bold tracking-wider">Peacock Store · Footwear</span>
+                        <h3 class="text-sm font-bold text-white mt-0.5 leading-tight">Adidas Ultraboost 22 Running</h3>
+                        <div class="flex items-baseline justify-between mt-2">
+                            <div>
+                                <span class="text-base font-black text-white">2,200</span>
+                                <span class="text-xs text-white/50 ml-1">EGP</span>
+                            </div>
+                            <span class="text-[10px] text-emerald-400 font-bold">In-Stock POS</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/10">
+                        <button type="button" onclick="handleFastCartBuyNow('PROD_002', 'Adidas Ultraboost 22 Running', 2200, 'https://assets.adidas.com/images/w_1880,f_auto,q_auto/6f20fbc592f5410d83e7e3dd3e0926f0_9366/JS3268_01_00_standard.jpg')" class="w-full py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                            <i class="bi bi-cart-plus"></i> Add
+                        </button>
+                        <button type="button" onclick="handleFastCartBuyNow('PROD_002', 'Adidas Ultraboost 22 Running', 2200, 'https://assets.adidas.com/images/w_1880,f_auto,q_auto/6f20fbc592f5410d83e7e3dd3e0926f0_9366/JS3268_01_00_standard.jpg')" class="w-full py-2 rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 hover:brightness-110 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20">
+                            <i class="bi bi-lightning-charge-fill"></i> Fast Buy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Product 3 -->
+                <div class="product-card group relative bg-neutral-900/80 border border-white/10 rounded-2xl overflow-hidden p-3 flex flex-col justify-between">
+                    <div class="relative aspect-square rounded-xl overflow-hidden bg-black/60 mb-3">
+                        <img src="https://resources.mandmdirect.com/Images/_default/a/d/3/ad30709_1_cloudzoom.jpg" alt="Performance Crew Socks" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                        <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-emerald-600/90 text-white text-[9px] font-black uppercase">PACK OF 3</span>
+                        <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-white text-[9px] font-mono">120 In Stock</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-blue-400 uppercase font-mono font-bold tracking-wider">Peacock Store · Accessories</span>
+                        <h3 class="text-sm font-bold text-white mt-0.5 leading-tight">Performance Crew Socks (3-Pack)</h3>
+                        <div class="flex items-baseline justify-between mt-2">
+                            <div>
+                                <span class="text-base font-black text-white">120</span>
+                                <span class="text-xs text-white/50 ml-1">EGP</span>
+                            </div>
+                            <span class="text-[10px] text-emerald-400 font-bold">Fast Dispatch</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/10">
+                        <button type="button" onclick="handleFastCartBuyNow('PROD_003', 'Performance Crew Socks (3-Pack)', 120, 'https://resources.mandmdirect.com/Images/_default/a/d/3/ad30709_1_cloudzoom.jpg')" class="w-full py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                            <i class="bi bi-cart-plus"></i> Add
+                        </button>
+                        <button type="button" onclick="handleFastCartBuyNow('PROD_003', 'Performance Crew Socks (3-Pack)', 120, 'https://resources.mandmdirect.com/Images/_default/a/d/3/ad30709_1_cloudzoom.jpg')" class="w-full py-2 rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 hover:brightness-110 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20">
+                            <i class="bi bi-lightning-charge-fill"></i> Fast Buy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Product 4 (Partner Store Showcase) -->
+                <div class="product-card group relative bg-neutral-900/80 border border-blue-500/30 rounded-2xl overflow-hidden p-3 flex flex-col justify-between">
+                    <div class="relative aspect-square rounded-xl overflow-hidden bg-black/60 mb-3">
+                        <img src="https://assets.adidas.com/images/w_940,f_auto,q_auto/6044dd9dea9948f49524adaa00b9338b_9366/GZ1561_01_00_standard.jpg" alt="Nike Air Max 270" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                        <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-purple-600/90 text-white text-[9px] font-black uppercase">STORE B · NIKE</span>
+                        <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-white text-[9px] font-mono">84 In Stock</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-purple-400 uppercase font-mono font-bold tracking-wider">Nike Studio Cairo · Footwear</span>
+                        <h3 class="text-sm font-bold text-white mt-0.5 leading-tight">Nike Air Max 270 (Black Edition)</h3>
+                        <div class="flex items-baseline justify-between mt-2">
+                            <div>
+                                <span class="text-base font-black text-white">850</span>
+                                <span class="text-xs text-white/50 ml-1">EGP</span>
+                                <span class="text-xs text-white/30 line-through ml-1.5">1,250</span>
+                            </div>
+                            <span class="text-[10px] text-purple-400 font-bold">Multi-Store Cart</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/10">
+                        <button type="button" onclick="handleFastCartBuyNow('nk-270-blk', 'Nike Air Max 270 (Black Edition)', 850, 'https://assets.adidas.com/images/w_940,f_auto,q_auto/6044dd9dea9948f49524adaa00b9338b_9366/GZ1561_01_00_standard.jpg', 'nike_studio_cairo', 'Nike Studio Cairo')" class="w-full py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-purple-500/40">
+                            <i class="bi bi-cart-plus"></i> Add
+                        </button>
+                        <button type="button" onclick="handleFastCartBuyNow('nk-270-blk', 'Nike Air Max 270 (Black Edition)', 850, 'https://assets.adidas.com/images/w_940,f_auto,q_auto/6044dd9dea9948f49524adaa00b9338b_9366/GZ1561_01_00_standard.jpg', 'nike_studio_cairo', 'Nike Studio Cairo')" class="w-full py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-500 hover:brightness-110 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-purple-500/20">
+                            <i class="bi bi-lightning-charge-fill"></i> Fast Buy
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════ FOOTER ═══════════ -->
+        <footer class="w-full border-t border-white/10 mt-12">
+            <div class="max-w-[1400px] mx-auto px-6 py-8 md:px-8 md:py-10">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0 overflow-hidden text-white">
+                            <i class="bi bi-globe2 text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold tracking-tight text-white">Matager Commerce Platform</h3>
+                            <p class="text-[11px] text-slate-400 font-light">Zero-Gravity Multi-Store Network · support@matager.com</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <a href="/dashboard" class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-all">Merchant Dashboard</a>
+                        <a href="/cashier" target="_blank" class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-all">POS Cashier</a>
+                        <div class="w-px h-6 bg-white/10 hidden sm:block"></div>
+                        <button type="button" onclick="onTogglePresentation()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-emerald-500 text-white text-xs font-bold uppercase tracking-wider transition-all">
+                            3D Bento Gallery
+                        </button>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 pt-5 border-t border-white/5">
+                    <p class="text-[11px] text-slate-500 font-light">© 2026 <span class="text-slate-400 font-medium">Matager Ecosystem</span>. All rights reserved.</p>
+                    <div class="flex items-center gap-3 text-[10px] text-slate-500">
+                        <span>Antigravity FastCart</span><span>|</span>
+                        <span>POS Node Sync</span><span>|</span>
+                        <span>Multi-Store Commerce</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </main>
+
+    <!-- ═══════════════════════════════════════════════════════════
+       FULLSCREEN BENTO 3D GALLERY OVERLAY
+       ═══════════════════════════════════════════════════════════ -->
+    <div id="fullscreen-gallery-wrapper">
+        <div class="gallery-content">
+            <div class="gallery-grid">
+                <!-- Item 1 -->
+                <div class="gallery-item g-hero" onclick="toggleGalleryItemActive(this)">
+                    <img src="./assets/gallery/premium_photo-1760466049638-c4763c839297.avif" alt="Product">
+                    <div class="gallery-overlay">
+                        <span class="gallery-brand">PEACOCK EXCLUSIVE</span>
+                        <h4 class="gallery-title">EARRINGS COLLECTION</h4>
+                        <p class="gallery-subtitle">Handcrafted Luxury</p>
+                        <div class="gallery-price-row">
+                            <span class="gallery-price">EGP 1,850</span>
+                        </div>
+                        <button class="gallery-btn" onclick="event.stopPropagation(); handleFastCartBuyNow('GALLERY_001', 'Peacock Luxury Earrings', 1850, './assets/gallery/premium_photo-1760466049638-c4763c839297.avif')">
+                            Add to FastCart
+                        </button>
+                    </div>
+                </div>
+                <!-- Item 2 -->
+                <div class="gallery-item g-tall" onclick="toggleGalleryItemActive(this)">
+                    <img src="./assets/gallery/premium_photo-1760468899064-8479bd84e424.avif" alt="Product">
+                    <div class="gallery-overlay">
+                        <span class="gallery-brand">FINE JEWELRY</span>
+                        <h4 class="gallery-title">SIGNATURE RINGS</h4>
+                        <p class="gallery-subtitle">18K Solid Gold Finish</p>
+                        <div class="gallery-price-row">
+                            <span class="gallery-price">EGP 2,400</span>
+                        </div>
+                        <button class="gallery-btn" onclick="event.stopPropagation(); handleFastCartBuyNow('GALLERY_002', 'Peacock Signature Ring', 2400, './assets/gallery/premium_photo-1760468899064-8479bd84e424.avif')">
+                            Add to FastCart
+                        </button>
+                    </div>
+                </div>
+                <!-- Item 3 -->
+                <div class="gallery-item g-wide" onclick="toggleGalleryItemActive(this)">
+                    <img src="./assets/gallery/premium_photo-1760466051118-6d26f8919b3f.avif" alt="Product">
+                    <div class="gallery-overlay">
+                        <span class="gallery-brand">TIMELESS</span>
+                        <h4 class="gallery-title">NECKLACES & PENDANTS</h4>
+                        <p class="gallery-subtitle">Hand-set Crystal</p>
+                        <div class="gallery-price-row">
+                            <span class="gallery-price">EGP 3,200</span>
+                        </div>
+                        <button class="gallery-btn" onclick="event.stopPropagation(); handleFastCartBuyNow('GALLERY_003', 'Peacock Pendants & Necklaces', 3200, './assets/gallery/premium_photo-1760466051118-6d26f8919b3f.avif')">
+                            Add to FastCart
+                        </button>
+                    </div>
+                </div>
+                <!-- Item 4 -->
+                <div class="gallery-item g-sq" onclick="toggleGalleryItemActive(this)">
+                    <img src="./assets/gallery/premium_photo-1760466051160-ec636c7ab4c2.avif" alt="Product">
+                    <div class="gallery-overlay">
+                        <span class="gallery-brand">ACCESSORIES</span>
+                        <h4 class="gallery-title">BRACELETS</h4>
+                        <p class="gallery-subtitle">Minimalist Modern</p>
+                        <div class="gallery-price-row">
+                            <span class="gallery-price">EGP 950</span>
+                        </div>
+                        <button class="gallery-btn" onclick="event.stopPropagation(); handleFastCartBuyNow('GALLERY_004', 'Peacock Modern Bracelet', 950, './assets/gallery/premium_photo-1760466051160-ec636c7ab4c2.avif')">
+                            Add to FastCart
+                        </button>
+                    </div>
+                </div>
+                <!-- Item 5 -->
+                <div class="gallery-item g-feat" onclick="toggleGalleryItemActive(this)">
+                    <img src="./assets/gallery/premium_photo-1760466050769-8f26ae224836.avif" alt="Product">
+                    <div class="gallery-overlay">
+                        <span class="gallery-brand">HOROLOGY</span>
+                        <h4 class="gallery-title">CHRONO WATCHES</h4>
+                        <p class="gallery-subtitle">Automatic Movement</p>
+                        <div class="gallery-price-row">
+                            <span class="gallery-price">EGP 6,800</span>
+                        </div>
+                        <button class="gallery-btn" onclick="event.stopPropagation(); handleFastCartBuyNow('GALLERY_005', 'Peacock Chrono Watch', 6800, './assets/gallery/premium_photo-1760466050769-8f26ae224836.avif')">
+                            Add to FastCart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

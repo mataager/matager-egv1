@@ -1,0 +1,84 @@
+/* =========================================================================
+   MATAGER — DESIGN SYSTEM TOKENS
+   Vibe: Linear / Stripe / Vercel style dark-first precision SaaS
+   ========================================================================= */
+
+:root {
+  /* Canvas & Surfaces */
+  --bg-canvas: #05060A;
+  --bg-surface: rgba(255, 255, 255, 0.025);
+  --bg-surface-elevated: rgba(255, 255, 255, 0.05);
+  --bg-surface-active: rgba(255, 255, 255, 0.08);
+  --bg-glass: rgba(10, 12, 20, 0.72);
+  --bg-glass-card: rgba(255, 255, 255, 0.02);
+
+  /* Typography & Text */
+  --text-primary: #FFFFFF;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-dim: #475569;
+
+  /* Brand Accents */
+  --accent-blue: #3B82F6;
+  --accent-sky: #38BDF8;
+  --accent-glow: rgba(59, 130, 246, 0.18);
+  --accent-glow-strong: rgba(59, 130, 246, 0.35);
+
+  /* Semantic */
+  --status-live: #4ADE80;
+  --status-alert: #F87171;
+  --status-warn: #FBBF24;
+  --status-purple: #A78BFA;
+
+  /* Hairline Borders */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.09);
+  --border-prominent: rgba(255, 255, 255, 0.16);
+  --border-accent: rgba(59, 130, 246, 0.4);
+
+  /* Radius Scale */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 9999px;
+
+  /* Motion & Timings */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-medium: 400ms;
+  --duration-slow: 650ms;
+  --duration-cinematic: 1200ms;
+
+  /* Viewport Height Fallbacks */
+  --hero-height: 100vh;
+}
+
+@supports (height: 100svh) {
+  :root {
+    --hero-height: 100svh;
+  }
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --viewport-dvh: 100dvh;
+  }
+}
+
+/* Reduced Motion Override */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

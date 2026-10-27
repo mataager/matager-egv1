@@ -1,0 +1,455 @@
+@import "../styles/design-tokens.css";
+@import "../theme/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATAGER CORE GLOBAL STYLES (Basedash Dark-Obsidian & Precision Terminal)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html {
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  overflow-x: hidden;
+  width: 100%;
+}
+
+button, input, select, textarea, label, .msm-opt, .msm-next, .msm-back, .msm-switch {
+  font-family: var(--font-ui);
+}
+
+.font-heading {
+  font-family: var(--font-heading) !important;
+}
+
+.font-subtitle {
+  font-family: var(--font-subtitle) !important;
+}
+
+.font-ui {
+  font-family: var(--font-ui) !important;
+}
+
+/* Custom Selection Highlight (Violet terminal tint) */
+::selection {
+  background-color: rgba(153, 132, 216, 0.35);
+  color: var(--color-ghost-white);
+}
+
+/* Scrollbar Cleanliness */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe Area Inset Utility Classes */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Dynamic Viewport Fit */
+.min-h-hero {
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+@supports (min-height: 100dvh) {
+  .min-h-hero-dvh {
+    min-height: 100dvh;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASEDASH STYLE UTILITY CLASSES & SEMANTIC ROLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-subtitle {
+  font-family: var(--font-subtitle);
+}
+
+.font-ui {
+  font-family: var(--font-ui);
+}
+
+/* Inter tight tracking voice */
+[lang="en"] .tracking-inter {
+  letter-spacing: -0.03em;
+}
+
+[lang="ar"] .tracking-inter,
+[dir="rtl"] .tracking-inter {
+  letter-spacing: 0px;
+}
+
+/* Basedash Primary Action: Inverted White Pill on Void Black */
+.btn-primary-pill {
+  background-color: var(--color-btn-primary-bg);
+  color: var(--color-btn-primary-text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: var(--radius-buttons);
+  padding: 12px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 150ms ease, transform 150ms ease;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary-pill:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-primary-pill:active {
+  transform: translateY(0);
+}
+
+/* Ghost Action Button */
+.btn-ghost-action {
+  background: transparent;
+  color: var(--color-btn-ghost-text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 12px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: color 150ms ease, background-color 150ms ease;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-buttons);
+}
+
+.btn-ghost-action:hover {
+  background-color: var(--color-btn-ghost-hover);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Outlined Action Button */
+.btn-outline-action {
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: var(--radius-buttons);
+  border: 1px solid var(--color-btn-outline-border);
+  padding: 10px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: border-color 150ms ease, background-color 150ms ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-outline-action:hover {
+  border-color: var(--color-text-primary);
+  background-color: var(--color-surface-hover);
+}
+
+/* Carbon Card (Surface level 1, 16px radius, recessed well feel) */
+.carbon-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-cards);
+  transition: border-color 200ms ease;
+}
+
+.carbon-card:hover {
+  border-color: var(--color-border-hover);
+}
+
+/* Basedash Pill Badge */
+.status-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: var(--radius-badges);
+  border: 1px solid var(--color-badge-border);
+  background-color: var(--color-badge-bg);
+  color: var(--color-badge-text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Pulsing Mint Signal Dot */
+.mint-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background-color: var(--color-accent-mint);
+  box-shadow: 0 0 8px rgba(63, 203, 127, 0.7);
+  animation: pulse-live 2s infinite;
+}
+
+@keyframes pulse-live {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(63, 203, 127, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(63, 203, 127, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(63, 203, 127, 0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL TYPOGRAPHY RULES FOR HEADINGS & SUBTITLES (EN & AR)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-subtitle,
+.subtitle,
+[data-role="subtitle"],
+.msm-sub {
+  font-family: var(--font-subtitle);
+}
+
+/* Ensure English subtitles have crisp tracking and weight */
+[lang="en"] .font-subtitle,
+[lang="en"] .subtitle,
+[lang="en"] .msm-sub {
+  letter-spacing: 0.01em;
+  font-weight: 400;
+}
+
+/* Ensure Arabic subtitles and body text use Fustat/Cairo with smooth line heights */
+[lang="ar"] .font-subtitle,
+[dir="rtl"] .font-subtitle,
+[lang="ar"] .subtitle,
+[dir="rtl"] .subtitle,
+[lang="ar"] .msm-sub,
+[dir="rtl"] .msm-sub {
+  font-family: var(--font-subtitle);
+  letter-spacing: 0px;
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIGN-UP & SIGN-IN MODAL STATE UTILITIES (.msm-*)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.msm-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  text-align: start;
+}
+
+.msm-opt:hover {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-surface-hover);
+}
+
+/* Primary Blue Gradient Utility: var(--color-primary-dark) to var(--color-primary-light) */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary-light) 100%);
+}
+
+.text-gradient-primary {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 2-Color Gradient Input Field for Blue Theme */
+.input-theme-gradient {
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-elevated) 100%);
+  border: 1px solid rgba(4, 121, 232, 0.35);
+  color: var(--color-ghost-white);
+}
+
+.input-theme-gradient::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input-theme-gradient:focus {
+  outline: none;
+  border-color: var(--color-primary-light);
+  box-shadow: 0 0 0 2px rgba(0, 131, 254, 0.25);
+}
+
+[data-theme="light"] .input-theme-gradient {
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-elevated) 100%);
+  border: 1px solid rgba(4, 121, 232, 0.28);
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .input-theme-gradient::placeholder {
+  color: var(--color-text-secondary);
+}
+
+[data-theme="light"] .input-theme-gradient:focus {
+  outline: none;
+  border-color: var(--color-primary-dark);
+  box-shadow: 0 0 0 2px rgba(4, 121, 232, 0.2);
+}
+
+.msm-opt.is-selected {
+  border-color: var(--color-primary-dark);
+  background-color: rgba(4, 121, 232, 0.07);
+  box-shadow: 0 0 0 1px var(--color-primary-dark), 0 4px 18px -4px rgba(4, 121, 232, 0.3);
+}
+
+[data-theme="light"] .msm-opt.is-selected {
+  border-color: var(--color-primary-dark);
+  background-color: rgba(4, 121, 232, 0.08);
+  box-shadow: 0 0 0 1px var(--color-primary-dark), 0 4px 18px -4px rgba(4, 121, 232, 0.2);
+}
+
+/* Switch between Sign In and Sign Up */
+.msm-switch {
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  transition: opacity 150ms ease;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.msm-switch:hover {
+  opacity: 0.85;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Modal Back action */
+.msm-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 150ms ease;
+  cursor: pointer;
+}
+
+.msm-back:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+}
+
+/* Modal Next / Primary action */
+.msm-next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 10px;
+  background-color: var(--color-btn-primary-bg);
+  color: var(--color-btn-primary-text);
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.msm-next:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.msm-next:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Non-clickable position dots */
+.msm-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--color-border);
+  transition: all 250ms ease;
+  pointer-events: none;
+}
+
+.msm-dot.is-active {
+  width: 22px;
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary-light) 100%);
+  box-shadow: 0 0 12px rgba(0, 131, 254, 0.55);
+}
+
+.msm-dot.is-passed {
+  background-color: var(--color-accent-mint);
+}
+
+
