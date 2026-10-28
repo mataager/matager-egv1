@@ -8,6 +8,12 @@
  * - Viewer / Customer Identification (persistent viewerId, personalization)
  */
 
+export interface ProductColor {
+  name: string;
+  hex: string;
+  image?: string;
+}
+
 export interface StoreProduct {
   id: string;
   title: string;
@@ -19,6 +25,11 @@ export interface StoreProduct {
   discountPercent?: number;
   stock: number;
   image: string;
+  gallery?: string[];
+  brand?: string;
+  colors?: ProductColor[];
+  sizes?: string[];
+  description?: string;
   badge?: string;
   isBestSeller?: boolean;
   currency?: string;
@@ -84,6 +95,7 @@ export const REGISTERED_STORES: Record<string, StoreProfile> = {
       {
         id: "PEA_001",
         title: "Adidas Classic Graphic Tee",
+        brand: "ADIDAS",
         category: "Apparel",
         storeId: "peacock_store",
         storeName: "Peacock Store",
@@ -92,57 +104,126 @@ export const REGISTERED_STORES: Record<string, StoreProfile> = {
         discountPercent: 50,
         stock: 18,
         image: "https://assets.adidas.com/images/w_1880,f_auto,q_auto/a4ff4a779ee34deca8cc9a6f1f411440_9366/KC6611_HM1.jpg",
+        gallery: [
+          "https://assets.adidas.com/images/w_1880,f_auto,q_auto/a4ff4a779ee34deca8cc9a6f1f411440_9366/KC6611_HM1.jpg",
+          "https://assets.adidas.com/images/w_1880,f_auto,q_auto/01f40aa9662b489498d578f28fa9fe3a_9366/KC6611_HM3_hover.jpg",
+          "https://assets.adidas.com/images/w_1880,f_auto,q_auto/9d18db7a195b4cf5bf669e46a788cb9d_9366/KC6611_HM4.jpg",
+        ],
         badge: "50% OFF",
         currency: "EGP",
+        colors: [
+          { name: "White / Royal Blue", hex: "#f8fafc" },
+          { name: "Onyx Black", hex: "#111827" },
+          { name: "Forest Green", hex: "#166534" },
+          { name: "Crimson Red", hex: "#991b1b" },
+          { name: "Slate Navy", hex: "#1e3a8a" },
+        ],
+        sizes: ["XS", "S", "M", "L", "XL", "XXL"],
+        description: "Crafted from heavy 100% premium combed cotton with bespoke archival crest embroidery and contrasting vintage retro stripes.",
       },
       {
         id: "PEA_002",
         title: "Adidas Ultraboost 22 Running",
+        brand: "ADIDAS",
         category: "Footwear",
         storeId: "peacock_store",
         storeName: "Peacock Store",
         price: 2200,
         originalPrice: 2800,
+        discountPercent: 21,
         stock: 42,
         image: "https://assets.adidas.com/images/w_1880,f_auto,q_auto/6f20fbc592f5410d83e7e3dd3e0926f0_9366/JS3268_01_00_standard.jpg",
+        gallery: [
+          "https://assets.adidas.com/images/w_1880,f_auto,q_auto/6f20fbc592f5410d83e7e3dd3e0926f0_9366/JS3268_01_00_standard.jpg",
+          "https://assets.adidas.com/images/w_1880,f_auto,q_auto/ca7d3b2357a04a6081cfd313d4b6791e_9366/JS3268_02_standard.jpg",
+        ],
         badge: "BEST SELLER",
         isBestSeller: true,
         currency: "EGP",
+        colors: [
+          { name: "Triple White", hex: "#f3f4f6" },
+          { name: "Core Black", hex: "#0f172a" },
+          { name: "Solar Orange", hex: "#ea580c" },
+          { name: "Cyan Ice", hex: "#06b6d4" },
+          { name: "Carbon Grey", hex: "#4b5563" },
+        ],
+        sizes: ["40", "41", "42", "43", "44", "45"],
+        description: "Energy-returning BOOST midsole combined with Linear Energy Push system for unprecedented daily cushion and speed.",
       },
       {
         id: "PEA_003",
         title: "Performance Crew Socks (3-Pack)",
+        brand: "ADIDAS",
         category: "Accessories",
         storeId: "peacock_store",
         storeName: "Peacock Store",
         price: 120,
+        originalPrice: 160,
+        discountPercent: 25,
         stock: 120,
         image: "https://resources.mandmdirect.com/Images/_default/a/d/3/ad30709_1_cloudzoom.jpg",
+        gallery: [
+          "https://resources.mandmdirect.com/Images/_default/a/d/3/ad30709_1_cloudzoom.jpg",
+        ],
         badge: "ESSENTIAL",
         currency: "EGP",
+        colors: [
+          { name: "Trio Pack (Black/Grey/White)", hex: "#64748b" },
+          { name: "All White Pack", hex: "#ffffff" },
+          { name: "All Black Pack", hex: "#000000" },
+        ],
+        sizes: ["M (38-42)", "L (43-46)"],
+        description: "Cushioned footbed with moisture-wicking yarns and arch compression band.",
       },
       {
         id: "PEA_004",
         title: "Peacock Limited Edition Chrono Watch",
+        brand: "PEACOCK",
         category: "Limited",
         storeId: "peacock_store",
         storeName: "Peacock Store",
         price: 6800,
+        originalPrice: 8500,
+        discountPercent: 20,
         stock: 8,
         image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+        gallery: [
+          "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+        ],
         badge: "LIMITED",
         currency: "EGP",
+        colors: [
+          { name: "Brushed Steel & Teal", hex: "#0d9488" },
+          { name: "Rose Gold", hex: "#b45309" },
+          { name: "Stealth Black", hex: "#18181b" },
+        ],
+        sizes: ["40mm", "42mm"],
+        description: "Sapphire crystal glass, Japanese quartz chronograph movement, and genuine Milanese mesh strap.",
       },
       {
         id: "PEA_005",
         title: "Handcrafted Italian Leather Tote",
+        brand: "PEACOCK ATELIER",
         category: "Accessories",
         storeId: "peacock_store",
         storeName: "Peacock Store",
         price: 3400,
+        originalPrice: 4250,
+        discountPercent: 20,
         stock: 14,
         image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=600",
+        gallery: [
+          "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=600",
+        ],
+        badge: "HANDMADE",
         currency: "EGP",
+        colors: [
+          { name: "Cognac Brown", hex: "#78350f" },
+          { name: "Espresso Black", hex: "#1c1917" },
+          { name: "Olive Green", hex: "#3f6212" },
+        ],
+        sizes: ["Standard Tote"],
+        description: "Vegetable-tanned full-grain Tuscan leather with custom solid brass hardware.",
       },
     ],
   },
